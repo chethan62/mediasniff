@@ -1,8 +1,8 @@
 // Cross-browser namespace shim (Chromium exposes only `chrome`).
 const browser = globalThis.browser ?? globalThis.chrome;
 
-// shortUrl, buildCommand, outExt, shq, sortMedia, exportContent come from
-// lib/media.js (loaded first in popup.html).
+// shortUrl, buildCommand, outExt, shq, sortMedia, exportContent, abdmPayload
+// come from lib/media.js (loaded first in popup.html).
 
 let allUrls = [];
 
@@ -58,6 +58,27 @@ function copyText(text, btn) {
   }
 }
 
+// --- Send a media URL (+ captured headers) to AB Download Manager. ---
+function finishAbdm(btn, orig, ok) {
+  btn.textContent = ok ? "Sent!" : "ABDM?";
+  btn.title = ok ? "Sent to AB Download Manager" : "Couldn't reach AB Download Manager (is it running?)";
+  btn.classList.add(ok ? "copied" : "fail");
+  setTimeout(() => {
+    btn.textContent = orig;
+    btn.classList.remove("copied", "fail");
+    btn.disabled = false;
+  }, 1700);
+}
+
+function sendToAbdm(entry, btn) {
+  const orig = btn.textContent;
+  btn.textContent = "…";
+  btn.disabled = true;
+  browser.runtime.sendMessage({ type: "SEND_TO_ABDM", payload: abdmPayload(entry) })
+    .then(res => finishAbdm(btn, orig, !!(res && res.ok)))
+    .catch(() => finishAbdm(btn, orig, false));
+}
+
 function downloadBlob(filename, text, mime) {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
@@ -107,6 +128,12 @@ function buildItem(entry) {
     : "Copy download command";
   btnCmd.onclick = () => copyText(buildCommand(entry, currentTool()), btnCmd);
 
+  const btnDm = document.createElement("button");
+  btnDm.className = "btn-dm";
+  btnDm.textContent = "DM";
+  btnDm.title = "Send to AB Download Manager";
+  btnDm.onclick = () => sendToAbdm(entry, btnDm);
+
   const btnOpen = document.createElement("button");
   btnOpen.className = "btn-open";
   btnOpen.textContent = "Open";
@@ -114,6 +141,7 @@ function buildItem(entry) {
 
   actions.appendChild(btnCopy);
   actions.appendChild(btnCmd);
+  actions.appendChild(btnDm);
   actions.appendChild(btnOpen);
 
   li.appendChild(badge);

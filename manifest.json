@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "MediaSniff",
-  "version": "1.2.1",
+  "version": "1.3.0",
   "description": "Detect and copy video/audio stream URLs from any page",
   "permissions": [
     "webRequest",
@@ -10,7 +10,8 @@
     "storage"
   ],
   "host_permissions": [
-    "<all_urls>"
+    "<all_urls>",
+    "http://localhost:15151/*"
   ],
   "background": {
     "service_worker": "background.js"

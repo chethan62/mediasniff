@@ -30,14 +30,14 @@ let asyncErr = null;
 process.on("unhandledRejection", e => { asyncErr = e; });
 
 // ---- load real background.js against a stubbed browser ----
-let sentCb = null, respCb = null, lastSet = null;
+let sentCb = null, respCb = null, msgCb = null, lastSet = null;
 global.browser = {
   webRequest: {
     onSendHeaders: { addListener: cb => { sentCb = cb; } },
     onResponseStarted: { addListener: cb => { respCb = cb; } }
   },
   tabs: { onRemoved: { addListener() {} }, onUpdated: { addListener() {} } },
-  runtime: { onMessage: { addListener() {} } },
+  runtime: { onMessage: { addListener: cb => { msgCb = cb; } } },
   storage: {
     session: {
       get: async () => ({}),
@@ -52,15 +52,17 @@ load("background.js");
 async function run() {
   await test("lib exposes every symbol background.js / popup.js reference", () => {
     for (const fn of ["isMediaUrl", "labelUrl", "shortUrl", "buildCommand",
-                      "outExt", "shq", "sortMedia", "exportContent"]) {
+                      "outExt", "shq", "sortMedia", "exportContent", "abdmPayload"]) {
       assert.strictEqual(typeof global[fn], "function", "missing global: " + fn);
     }
     assert.strictEqual(typeof global.MAX_PER_TAB, "number");
+    assert.strictEqual(global.ABDM_ADD_URL, "http://localhost:15151/add");
   });
 
-  await test("background.js registers webRequest listeners", () => {
+  await test("background.js registers webRequest + message listeners", () => {
     assert.strictEqual(typeof sentCb, "function");
     assert.strictEqual(typeof respCb, "function");
+    assert.strictEqual(typeof msgCb, "function");
   });
 
   await test("background.js: media response detected, labelled, header-tagged, persisted", async () => {
@@ -97,6 +99,26 @@ async function run() {
       timeStamp: 2
     });
     assert.strictEqual(lastSet, null, "no persist for non-media");
+  });
+
+  await test("background.js: SEND_TO_ABDM POSTs the payload to ABDM and reports ok", async () => {
+    let fetched = null;
+    global.fetch = async (url, opts) => { fetched = { url, opts }; return { ok: true, status: 200 }; };
+    let resp = null;
+    const ret = msgCb(
+      { type: "SEND_TO_ABDM", payload: [{ link: "https://h/v.mp4", headers: { Referer: "https://h/" }, downloadPage: "https://h/" }] },
+      null,
+      r => { resp = r; }
+    );
+    assert.strictEqual(ret, true, "handler keeps the message channel open");
+    await new Promise(r => setTimeout(r, 10));
+    assert.ok(fetched, "fetch was called");
+    assert.strictEqual(fetched.url, "http://localhost:15151/add");
+    assert.strictEqual(fetched.opts.method, "POST");
+    const body = JSON.parse(fetched.opts.body);
+    assert.strictEqual(body[0].link, "https://h/v.mp4");
+    assert.strictEqual(body[0].headers.Referer, "https://h/");
+    assert.deepStrictEqual(resp, { ok: true, status: 200 });
   });
 
   await test("popup.js loads + renders an item without reference errors", async () => {

@@ -140,5 +140,23 @@ test("MAX_PER_TAB is a sane positive cap", () => {
   ok(Number.isInteger(M.MAX_PER_TAB) && M.MAX_PER_TAB > 0);
 });
 
+// ---- ABDM integration payload ----
+test("ABDM_ADD_URL targets the local AB Download Manager REST endpoint", () => {
+  eq(M.ABDM_ADD_URL, "http://localhost:15151/add");
+});
+test("abdmPayload wraps link + captured headers + downloadPage", () => {
+  const p = M.abdmPayload({ url: "https://cdn/s.m3u8", referer: "https://site/watch", userAgent: "UA/1.0" });
+  ok(Array.isArray(p));
+  eq(p[0].link, "https://cdn/s.m3u8");
+  eq(p[0].headers.Referer, "https://site/watch");
+  eq(p[0].headers["User-Agent"], "UA/1.0");
+  eq(p[0].downloadPage, "https://site/watch");
+});
+test("abdmPayload uses an empty header object + downloadPage when none captured", () => {
+  const p = M.abdmPayload({ url: "https://h/v.mp4" });
+  eq(p[0].headers, {});
+  eq(p[0].downloadPage, "");
+});
+
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

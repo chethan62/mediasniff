@@ -9,7 +9,8 @@ Works on **Chrome, Edge, Brave, Opera, Vivaldi and Firefox** (Manifest V3).
 - Sniffs media requests live via the `webRequest` API; a per-tab toolbar badge shows the count.
 - Color-coded type detection: `HLS`, `DASH`, `MP4`, `WEBM`, `AUDIO`, `TS`, `MEDIA`.
 - Filter by type + free-text search.
-- Per-URL actions: **Copy** URL, **Cmd** (copy a download command), **Open** in a new tab.
+- Per-URL actions: **Copy** URL, **Cmd** (copy a download command), **DM** (send to AB Download Manager), **Open** in a new tab.
+- **Send to AB Download Manager** — the **DM** button hands the URL + captured `Referer`/`User-Agent` to a running [ABDM](https://github.com/amir1376/ab-download-manager) instance via its local REST API (`http://localhost:15151/add`), for fast segmented downloads outside the browser.
 - yt-dlp / ffmpeg command generator — picks sensible flags per media type, and remembers your tool choice across sessions.
 - Captures each stream's `Referer` / `User-Agent` and bakes them into the generated commands, so protected streams that 403 without headers still download.
 - Bulk actions: **Copy all URLs**, **Copy all cmds**, and **Export** to `.txt`, `.json`, or `.m3u` (a playlist you can open straight in VLC).

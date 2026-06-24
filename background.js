@@ -160,4 +160,14 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     sendResponse({ ok: true });
     return true;
   }
+  if (msg.type === "SEND_TO_ABDM") {
+    fetch(ABDM_ADD_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msg.payload)
+    })
+      .then(r => sendResponse({ ok: r.ok, status: r.status }))
+      .catch(err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
 });
