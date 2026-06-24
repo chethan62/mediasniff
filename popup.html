@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MediaSniff</title>
+<link rel="stylesheet" href="popup.css">
+</head>
+<body>
+<div class="header">
+  <span class="title">MediaSniff</span>
+  <button id="btn-clear" title="Clear all">Clear</button>
+</div>
+
+<div class="toolbar">
+  <input id="search" type="text" placeholder="Filter URLs..." spellcheck="false">
+  <select id="filter-type">
+    <option value="all">All types</option>
+    <option value="HLS">HLS</option>
+    <option value="DASH">DASH</option>
+    <option value="MP4">MP4</option>
+    <option value="AUDIO">Audio</option>
+    <option value="WEBM">WEBM</option>
+  </select>
+  <select id="tool-select" title="Tool for the Cmd button">
+    <option value="yt-dlp">yt-dlp</option>
+    <option value="ffmpeg">ffmpeg</option>
+  </select>
+</div>
+
+<div id="list-area">
+  <div id="empty-state">
+    <p>No media detected yet.</p>
+    <p class="hint">Play or load a video/audio on the page.</p>
+  </div>
+  <ul id="url-list"></ul>
+</div>
+
+<div class="footer">
+  <div class="footer-actions">
+    <button id="btn-copy-all" disabled>Copy URLs</button>
+    <button id="btn-copy-cmds" disabled>Copy cmds</button>
+    <select id="export-format" disabled title="Export found URLs to a file">
+      <option value="">Export ▾</option>
+      <option value="txt">.txt list</option>
+      <option value="json">.json</option>
+      <option value="m3u">.m3u playlist</option>
+    </select>
+  </div>
+  <span id="count">0 found</span>
+</div>
+
+<script src="popup.js"></script>
+</body>
+</html>
