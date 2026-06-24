@@ -1,0 +1,12 @@
+{
+  "name": "mediasniff",
+  "version": "1.2.1",
+  "description": "Cross-browser MV3 extension to detect and copy/download video & audio stream URLs.",
+  "private": true,
+  "scripts": {
+    "test": "node tests/media.test.js && node tests/integration.test.js",
+    "build": "bash build.sh",
+    "lint:firefox": "web-ext lint --source-dir dist/firefox"
+  },
+  "license": "MIT"
+}

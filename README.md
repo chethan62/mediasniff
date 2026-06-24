@@ -11,21 +11,35 @@ Works on **Chrome, Edge, Brave, Opera, Vivaldi and Firefox** (Manifest V3).
 - Filter by type + free-text search.
 - Per-URL actions: **Copy** URL, **Cmd** (copy a download command), **Open** in a new tab.
 - yt-dlp / ffmpeg command generator — picks sensible flags per media type, and remembers your tool choice across sessions.
+- Captures each stream's `Referer` / `User-Agent` and bakes them into the generated commands, so protected streams that 403 without headers still download.
 - Bulk actions: **Copy all URLs**, **Copy all cmds**, and **Export** to `.txt`, `.json`, or `.m3u` (a playlist you can open straight in VLC).
 
 ## Install (unpacked)
 
+Chromium and Firefox require opposite MV3 background formats, so there are two manifests:
+`manifest.json` (Chromium — service worker) and `manifest.firefox.json` (Firefox — `background.scripts`).
+Run `npm run build` to produce a clean per-browser package under `dist/`.
+
 ### Chromium (Chrome / Edge / Brave / Opera / Vivaldi)
 1. Open `chrome://extensions`
 2. Enable **Developer mode**
-3. **Load unpacked** → select this folder
-
-> Chrome may show a harmless *"Unrecognized manifest key 'background.scripts'"* warning — Chromium uses the service worker, Firefox uses the event page. Both run the same `background.js`.
+3. **Load unpacked** → select this folder (uses `manifest.json` directly)
 
 ### Firefox
-1. Open `about:debugging#/runtime/this-firefox`
-2. **Load Temporary Add-on** → select `manifest.json`
-3. If prompted, grant the all-sites host permission from the extension's menu.
+1. `npm run build` — creates `dist/firefox/` with the Firefox manifest
+2. Open `about:debugging#/runtime/this-firefox`
+3. **Load Temporary Add-on** → select `dist/firefox/manifest.json`
+   - …or simply: `npx web-ext run --source-dir dist/firefox`
+
+## Build
+
+```bash
+npm run build
+```
+
+Outputs into `dist/`:
+- `dist/chrome/`  + `mediasniff-chrome-<ver>.zip`  — Chromium / Chrome Web Store
+- `dist/firefox/` + `mediasniff-firefox-<ver>.zip` — Firefox / AMO
 
 ## Usage
 
@@ -35,10 +49,22 @@ Open a page that plays/loads media, then click the MediaSniff toolbar icon. Use 
 
 | Permission | Why |
 |---|---|
-| `webRequest` + `<all_urls>` | observe media response URLs |
+| `webRequest` + `<all_urls>` | observe media response URLs + capture Referer/User-Agent |
 | `tabs` | scope results per tab and open URLs |
-| `storage` | remember the chosen tool; survive service-worker eviction |
+| `storage` | remember the chosen tool; persist results across background restarts |
 | `clipboardWrite` | copy buttons |
+
+## Tests
+
+The browser-independent logic lives in `lib/media.js` and is covered by a zero-dependency test suite (no `npm install` needed):
+
+```bash
+npm test
+# or: node tests/media.test.js && node tests/integration.test.js
+```
+
+- `tests/media.test.js` — unit tests for detection, labelling, command generation (including shell-quoting safety) and the txt/json/m3u exports.
+- `tests/integration.test.js` — loads the real `background.js` / `popup.js` against stubbed browser + DOM APIs and verifies the capture → detect → persist → command pipeline end to end.
 
 ## License
 

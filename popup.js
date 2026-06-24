@@ -1,6 +1,9 @@
 // Cross-browser namespace shim (Chromium exposes only `chrome`).
 const browser = globalThis.browser ?? globalThis.chrome;
 
+// shortUrl, buildCommand, outExt, shq, sortMedia, exportContent come from
+// lib/media.js (loaded first in popup.html).
+
 let allUrls = [];
 
 function badgeClass(label) {
@@ -16,58 +19,43 @@ function badgeClass(label) {
   return map[label] || "badge-MEDIA";
 }
 
-function shortUrl(url) {
-  try {
-    const u = new URL(url);
-    const path = u.pathname.length > 60
-      ? "…" + u.pathname.slice(-55)
-      : u.pathname;
-    return u.hostname + path;
-  } catch {
-    return url.length > 80 ? url.slice(0, 77) + "…" : url;
-  }
-}
-
-function copyText(text, btn) {
-  navigator.clipboard.writeText(text).then(() => {
-    const orig = btn.textContent;
-    btn.textContent = "Copied!";
-    btn.classList.add("copied");
-    setTimeout(() => {
-      btn.textContent = orig;
-      btn.classList.remove("copied");
-    }, 1400);
-  });
-}
-
-function realExt(url) {
-  const m = url.toLowerCase().split("?")[0].match(/\.([a-z0-9]{2,4})$/);
-  return m ? m[1] : "";
-}
-
-function outExt(entry) {
-  if (entry.label === "HLS" || entry.label === "DASH") return "mp4";
-  const ext = realExt(entry.url);
-  if (ext) return ext;
-  if (entry.label === "AUDIO") return "m4a";
-  if (entry.label === "WEBM") return "webm";
-  return "mp4";
-}
-
 function currentTool() {
   const el = document.getElementById("tool-select");
   return el ? el.value : "yt-dlp";
 }
 
-function buildCommand(entry) {
-  const url = entry.url;
-  if (currentTool() === "ffmpeg") {
-    return `ffmpeg -i "${url}" -c copy "output.${outExt(entry)}"`;
+// --- Clipboard with a hardened fallback so Copy can never silently fail. ---
+function flash(btn) {
+  const orig = btn.textContent;
+  btn.textContent = "Copied!";
+  btn.classList.add("copied");
+  setTimeout(() => {
+    btn.textContent = orig;
+    btn.classList.remove("copied");
+  }, 1400);
+}
+
+function fallbackCopy(text, btn) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    document.execCommand("copy");
+    ta.remove();
+    flash(btn);
+  } catch (e) { /* clipboard unavailable */ }
+}
+
+function copyText(text, btn) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => flash(btn)).catch(() => fallbackCopy(text, btn));
+  } else {
+    fallbackCopy(text, btn);
   }
-  if (entry.label === "AUDIO") {
-    return `yt-dlp -x --audio-format mp3 "${url}"`;
-  }
-  return `yt-dlp "${url}"`;
 }
 
 function downloadBlob(filename, text, mime) {
@@ -85,15 +73,9 @@ function downloadBlob(filename, text, mime) {
 function exportList(list, fmt) {
   if (!list.length) return;
   const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-");
-  if (fmt === "json") {
-    const data = list.map(e => ({ url: e.url, type: e.label, contentType: e.contentType }));
-    downloadBlob(`mediasniff-${stamp}.json`, JSON.stringify(data, null, 2), "application/json");
-  } else if (fmt === "m3u") {
-    const body = list.map(e => `#EXTINF:-1,${e.label} - ${shortUrl(e.url)}\n${e.url}`).join("\n");
-    downloadBlob(`mediasniff-${stamp}.m3u`, `#EXTM3U\n${body}\n`, "audio/x-mpegurl");
-  } else {
-    downloadBlob(`mediasniff-${stamp}.txt`, list.map(e => e.url).join("\n") + "\n", "text/plain");
-  }
+  const ext = fmt === "json" ? "json" : fmt === "m3u" ? "m3u" : "txt";
+  const mime = fmt === "json" ? "application/json" : fmt === "m3u" ? "audio/x-mpegurl" : "text/plain";
+  downloadBlob(`mediasniff-${stamp}.${ext}`, exportContent(list, fmt), mime);
 }
 
 function buildItem(entry) {
@@ -120,8 +102,10 @@ function buildItem(entry) {
   const btnCmd = document.createElement("button");
   btnCmd.className = "btn-cmd";
   btnCmd.textContent = "Cmd";
-  btnCmd.title = "Copy download command";
-  btnCmd.onclick = () => copyText(buildCommand(entry), btnCmd);
+  btnCmd.title = (entry.referer || entry.userAgent)
+    ? "Copy download command (includes captured Referer/User-Agent)"
+    : "Copy download command";
+  btnCmd.onclick = () => copyText(buildCommand(entry, currentTool()), btnCmd);
 
   const btnOpen = document.createElement("button");
   btnOpen.className = "btn-open";
@@ -174,7 +158,7 @@ function applyFilter() {
   }
 
   copyAll.onclick = () => copyText(filtered.map(e => e.url).join("\n"), copyAll);
-  copyCmds.onclick = () => copyText(filtered.map(e => buildCommand(e)).join("\n"), copyCmds);
+  copyCmds.onclick = () => copyText(filtered.map(e => buildCommand(e, currentTool())).join("\n"), copyCmds);
   exportSel.onchange = () => {
     const fmt = exportSel.value;
     if (fmt) { exportList(filtered, fmt); exportSel.value = ""; }
@@ -202,10 +186,7 @@ async function init() {
     tabId: tab.id
   });
 
-  allUrls = (response?.urls || []).sort((a, b) => {
-    const priority = { HLS: 0, DASH: 1, MP4: 2, WEBM: 3, AUDIO: 4, "TS segment": 5, MEDIA: 6 };
-    return (priority[a.label] ?? 9) - (priority[b.label] ?? 9);
-  });
+  allUrls = sortMedia(response?.urls || []);
 
   applyFilter();
 
