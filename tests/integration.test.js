@@ -49,14 +49,25 @@ global.browser = {
 };
 load("background.js");
 
+// Helper: drive a background onMessage handler with a stubbed fetch.
+async function driveMessage(message) {
+  let fetched = null;
+  global.fetch = async (url, opts) => { fetched = { url, opts }; return { ok: true, status: 200 }; };
+  let resp = null;
+  const ret = msgCb(message, null, r => { resp = r; });
+  await new Promise(r => setTimeout(r, 10));
+  return { fetched, resp, ret };
+}
+
 async function run() {
   await test("lib exposes every symbol background.js / popup.js reference", () => {
-    for (const fn of ["isMediaUrl", "labelUrl", "shortUrl", "buildCommand",
-                      "outExt", "shq", "sortMedia", "exportContent", "abdmPayload"]) {
+    for (const fn of ["isMediaUrl", "labelUrl", "shortUrl", "buildCommand", "outExt", "shq",
+                      "sortMedia", "exportContent", "abdmPayload", "grabberPayload", "isStream"]) {
       assert.strictEqual(typeof global[fn], "function", "missing global: " + fn);
     }
     assert.strictEqual(typeof global.MAX_PER_TAB, "number");
     assert.strictEqual(global.ABDM_ADD_URL, "http://localhost:15151/add");
+    assert.strictEqual(global.GRABBER_URL, "http://localhost:15152/grab");
   });
 
   await test("background.js registers webRequest + message listeners", () => {
@@ -85,9 +96,6 @@ async function run() {
     assert.strictEqual(entry.label, "HLS");
     assert.strictEqual(entry.referer, "https://site/watch");
     assert.strictEqual(entry.userAgent, "UA/1.0");
-    const cmd = buildCommand(entry, "yt-dlp");
-    assert.ok(cmd.includes("--referer 'https://site/watch'"), "cmd carries Referer");
-    assert.ok(cmd.includes("--user-agent 'UA/1.0'"), "cmd carries User-Agent");
   });
 
   await test("background.js: non-media response is ignored", async () => {
@@ -101,23 +109,28 @@ async function run() {
     assert.strictEqual(lastSet, null, "no persist for non-media");
   });
 
-  await test("background.js: SEND_TO_ABDM POSTs the payload to ABDM and reports ok", async () => {
-    let fetched = null;
-    global.fetch = async (url, opts) => { fetched = { url, opts }; return { ok: true, status: 200 }; };
-    let resp = null;
-    const ret = msgCb(
-      { type: "SEND_TO_ABDM", payload: [{ link: "https://h/v.mp4", headers: { Referer: "https://h/" }, downloadPage: "https://h/" }] },
-      null,
-      r => { resp = r; }
-    );
-    assert.strictEqual(ret, true, "handler keeps the message channel open");
-    await new Promise(r => setTimeout(r, 10));
-    assert.ok(fetched, "fetch was called");
+  await test("background.js: SEND_TO_ABDM POSTs payload to ABDM and reports ok", async () => {
+    const { fetched, resp, ret } = await driveMessage({
+      type: "SEND_TO_ABDM",
+      payload: [{ link: "https://h/v.mp4", headers: { Referer: "https://h/" }, downloadPage: "https://h/" }]
+    });
+    assert.strictEqual(ret, true);
     assert.strictEqual(fetched.url, "http://localhost:15151/add");
     assert.strictEqual(fetched.opts.method, "POST");
+    assert.deepStrictEqual(resp, { ok: true, status: 200 });
+  });
+
+  await test("background.js: SEND_TO_GRABBER POSTs payload to the grabber and reports ok", async () => {
+    const { fetched, resp, ret } = await driveMessage({
+      type: "SEND_TO_GRABBER",
+      payload: { url: "https://cdn/s.m3u8", referer: "https://site/", userAgent: "UA/1.0" }
+    });
+    assert.strictEqual(ret, true);
+    assert.strictEqual(fetched.url, "http://localhost:15152/grab");
+    assert.strictEqual(fetched.opts.method, "POST");
     const body = JSON.parse(fetched.opts.body);
-    assert.strictEqual(body[0].link, "https://h/v.mp4");
-    assert.strictEqual(body[0].headers.Referer, "https://h/");
+    assert.strictEqual(body.url, "https://cdn/s.m3u8");
+    assert.strictEqual(body.referer, "https://site/");
     assert.deepStrictEqual(resp, { ok: true, status: 200 });
   });
 

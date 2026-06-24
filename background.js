@@ -170,4 +170,14 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(err => sendResponse({ ok: false, error: String(err) }));
     return true;
   }
+  if (msg.type === "SEND_TO_GRABBER") {
+    fetch(GRABBER_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(msg.payload)
+    })
+      .then(r => sendResponse({ ok: r.ok, status: r.status }))
+      .catch(err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
 });

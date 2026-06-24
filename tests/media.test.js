@@ -158,5 +158,22 @@ test("abdmPayload uses an empty header object + downloadPage when none captured"
   eq(p[0].downloadPage, "");
 });
 
+// ---- Grabber (local helper) payload ----
+test("GRABBER_URL targets the local grabber helper", () => {
+  eq(M.GRABBER_URL, "http://localhost:15152/grab");
+});
+test("grabberPayload sends url + captured headers", () => {
+  const p = M.grabberPayload({ url: "https://cdn/s.m3u8", referer: "https://site/", userAgent: "UA/1.0" });
+  eq(p.url, "https://cdn/s.m3u8");
+  eq(p.referer, "https://site/");
+  eq(p.userAgent, "UA/1.0");
+});
+test("isStream is true only for HLS/DASH", () => {
+  ok(M.isStream({ label: "HLS" }));
+  ok(M.isStream({ label: "DASH" }));
+  ok(!M.isStream({ label: "MP4" }));
+  ok(!M.isStream({ label: "AUDIO" }));
+});
+
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

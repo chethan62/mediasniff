@@ -141,7 +141,7 @@ body {
   flex-shrink: 0;
 }
 
-.btn-copy, .btn-open, .btn-cmd, .btn-dm {
+.btn-copy, .btn-open, .btn-cmd, .btn-dm, .btn-grab {
   font-size: 11px;
   padding: 3px 8px;
   border-radius: 5px;
@@ -175,6 +175,15 @@ body {
 .btn-dm:hover { opacity: 0.85; }
 .btn-dm.copied { background: #1d9e75; }
 .btn-dm.fail { background: #f38ba8; color: #1e1e2e; }
+
+.btn-grab {
+  background: #179a8e;
+  color: #fff;
+}
+
+.btn-grab:hover { opacity: 0.85; }
+.btn-grab.copied { background: #1d9e75; }
+.btn-grab.fail { background: #f38ba8; color: #1e1e2e; }
 
 .btn-open {
   background: #313244;

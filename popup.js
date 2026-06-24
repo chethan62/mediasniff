@@ -1,8 +1,8 @@
 // Cross-browser namespace shim (Chromium exposes only `chrome`).
 const browser = globalThis.browser ?? globalThis.chrome;
 
-// shortUrl, buildCommand, outExt, shq, sortMedia, exportContent, abdmPayload
-// come from lib/media.js (loaded first in popup.html).
+// shortUrl, buildCommand, outExt, shq, sortMedia, exportContent, abdmPayload,
+// grabberPayload come from lib/media.js (loaded first in popup.html).
 
 let allUrls = [];
 
@@ -58,10 +58,9 @@ function copyText(text, btn) {
   }
 }
 
-// --- Send a media URL (+ captured headers) to AB Download Manager. ---
-function finishAbdm(btn, orig, ok) {
-  btn.textContent = ok ? "Sent!" : "ABDM?";
-  btn.title = ok ? "Sent to AB Download Manager" : "Couldn't reach AB Download Manager (is it running?)";
+// --- Generic background-message send with button feedback (DM, Grab). ---
+function flashResult(btn, orig, ok, okText, failText) {
+  btn.textContent = ok ? okText : failText;
   btn.classList.add(ok ? "copied" : "fail");
   setTimeout(() => {
     btn.textContent = orig;
@@ -70,13 +69,13 @@ function finishAbdm(btn, orig, ok) {
   }, 1700);
 }
 
-function sendToAbdm(entry, btn) {
+function sendMsg(type, payload, btn, okText, failText) {
   const orig = btn.textContent;
   btn.textContent = "…";
   btn.disabled = true;
-  browser.runtime.sendMessage({ type: "SEND_TO_ABDM", payload: abdmPayload(entry) })
-    .then(res => finishAbdm(btn, orig, !!(res && res.ok)))
-    .catch(() => finishAbdm(btn, orig, false));
+  browser.runtime.sendMessage({ type, payload })
+    .then(res => flashResult(btn, orig, !!(res && res.ok), okText, failText))
+    .catch(() => flashResult(btn, orig, false, okText, failText));
 }
 
 function downloadBlob(filename, text, mime) {
@@ -131,8 +130,14 @@ function buildItem(entry) {
   const btnDm = document.createElement("button");
   btnDm.className = "btn-dm";
   btnDm.textContent = "DM";
-  btnDm.title = "Send to AB Download Manager";
-  btnDm.onclick = () => sendToAbdm(entry, btnDm);
+  btnDm.title = "Send to AB Download Manager (direct files; not HLS)";
+  btnDm.onclick = () => sendMsg("SEND_TO_ABDM", abdmPayload(entry), btnDm, "Sent!", "ABDM?");
+
+  const btnGrab = document.createElement("button");
+  btnGrab.className = "btn-grab";
+  btnGrab.textContent = "Grab";
+  btnGrab.title = "Download via the local grabber (yt-dlp/ffmpeg). Start it with: npm run helper";
+  btnGrab.onclick = () => sendMsg("SEND_TO_GRABBER", grabberPayload(entry), btnGrab, "Started", "Helper?");
 
   const btnOpen = document.createElement("button");
   btnOpen.className = "btn-open";
@@ -142,6 +147,7 @@ function buildItem(entry) {
   actions.appendChild(btnCopy);
   actions.appendChild(btnCmd);
   actions.appendChild(btnDm);
+  actions.appendChild(btnGrab);
   actions.appendChild(btnOpen);
 
   li.appendChild(badge);
