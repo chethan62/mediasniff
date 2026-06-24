@@ -58,7 +58,7 @@ function copyText(text, btn) {
   }
 }
 
-// --- Generic background-message send with button feedback (DM, Grab). ---
+// --- Generic background-message send with button feedback (DM). ---
 function flashResult(btn, orig, ok, okText, failText) {
   btn.textContent = ok ? okText : failText;
   btn.classList.add(ok ? "copied" : "fail");
@@ -76,6 +76,95 @@ function sendMsg(type, payload, btn, okText, failText) {
   browser.runtime.sendMessage({ type, payload })
     .then(res => flashResult(btn, orig, !!(res && res.ok), okText, failText))
     .catch(() => flashResult(btn, orig, false, okText, failText));
+}
+
+// --- Grab: send to the local helper, then poll its job for live progress. ---
+async function doGrab(entry, btn) {
+  const orig = "Grab";
+  btn.textContent = "…";
+  btn.disabled = true;
+  btn.classList.remove("copied", "fail");
+  try {
+    const payload = grabberPayload(entry);
+    const q = document.getElementById("quality-select");
+    if (q && q.value) payload.format = q.value;
+    const subs = document.getElementById("subs-check");
+    if (subs && subs.checked) payload.subs = true;
+
+    const res = await browser.runtime.sendMessage({ type: "SEND_TO_GRABBER", payload });
+    if (res && res.ok && res.id != null) {
+      btn.textContent = "0%";
+      pollJob(btn, res.id, orig);
+    } else {
+      flashResult(btn, orig, false, "Started", "Helper?");
+    }
+  } catch (e) {
+    flashResult(btn, orig, false, "Started", "Helper?");
+  }
+}
+
+function pollJob(btn, id, orig) {
+  const finish = (txt, cls) => {
+    btn.textContent = txt;
+    if (cls) btn.classList.add(cls);
+    setTimeout(() => {
+      btn.textContent = orig;
+      btn.classList.remove("copied", "fail");
+      btn.disabled = false;
+    }, 2500);
+  };
+  const timer = setInterval(async () => {
+    let res;
+    try {
+      res = await browser.runtime.sendMessage({ type: "GET_JOB_STATUS", id });
+    } catch (e) {
+      clearInterval(timer); finish("Helper?", "fail"); return;
+    }
+    if (!res || !res.ok) return;                     // transient — keep polling
+    if (res.status === "done") { clearInterval(timer); finish("Done✓", "copied"); }
+    else if (res.status === "failed") { clearInterval(timer); finish("Failed✗", "fail"); }
+    else { btn.textContent = Math.floor(res.pct || 0) + "%"; }
+  }, 1500);
+}
+
+// --- Downloads panel: poll the helper's job list and render progress. ---
+async function pollDownloads() {
+  const panel = document.getElementById("downloads-panel");
+  if (!panel) return;
+  let res;
+  try {
+    res = await browser.runtime.sendMessage({ type: "GET_JOBS" });
+  } catch (e) {
+    panel.style.display = "none";
+    return;
+  }
+  const jobs = (res && res.ok && Array.isArray(res.jobs)) ? res.jobs : [];
+  if (!jobs.length) {
+    panel.style.display = "none";
+    panel.replaceChildren();
+    return;
+  }
+  panel.style.display = "block";
+  const frag = document.createDocumentFragment();
+  const title = document.createElement("div");
+  title.className = "dl-title";
+  title.textContent = "Downloads";
+  frag.appendChild(title);
+  jobs.slice(0, 8).forEach(j => {
+    const row = document.createElement("div");
+    row.className = "dl-job " + (j.status === "done" ? "dl-done" : j.status === "failed" ? "dl-fail" : "dl-run");
+    const pct = document.createElement("span");
+    pct.className = "dl-pct";
+    pct.textContent = j.status === "done" ? "✓" : j.status === "failed" ? "✗" : (Math.floor(j.pct || 0) + "%");
+    const name = document.createElement("span");
+    name.className = "dl-name";
+    name.textContent = j.file ? String(j.file).split("/").pop() : shortUrl(j.url || "");
+    name.title = j.url || "";
+    row.appendChild(pct);
+    row.appendChild(name);
+    frag.appendChild(row);
+  });
+  panel.replaceChildren(frag);
 }
 
 function downloadBlob(filename, text, mime) {
@@ -136,8 +225,8 @@ function buildItem(entry) {
   const btnGrab = document.createElement("button");
   btnGrab.className = "btn-grab";
   btnGrab.textContent = "Grab";
-  btnGrab.title = "Download via the local grabber (yt-dlp/ffmpeg). Start it with: npm run helper";
-  btnGrab.onclick = () => sendMsg("SEND_TO_GRABBER", grabberPayload(entry), btnGrab, "Started", "Helper?");
+  btnGrab.title = "Download via the local grabber (yt-dlp/ffmpeg) with live progress. Start it with: npm run helper";
+  btnGrab.onclick = () => doGrab(entry, btnGrab);
 
   const btnOpen = document.createElement("button");
   btnOpen.className = "btn-open";
@@ -199,21 +288,33 @@ function applyFilter() {
   };
 }
 
+function bindPref(id, prop, key) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("change", (e) => {
+    try { browser.storage.local.set({ [key]: e.target[prop] }); } catch (err) { /* ignore */ }
+  });
+}
+
 async function init() {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
   if (!tab) return;
 
-  // Restore the last-used download tool.
+  // Restore saved prefs (tool / quality / subs).
   try {
-    const saved = await browser.storage.local.get("tool");
-    const sel = document.getElementById("tool-select");
-    if (saved.tool && sel) sel.value = saved.tool;
+    const saved = await browser.storage.local.get(["tool", "quality", "subs"]);
+    const tool = document.getElementById("tool-select");
+    if (tool && saved.tool) tool.value = saved.tool;
+    const q = document.getElementById("quality-select");
+    if (q && saved.quality != null) q.value = saved.quality;
+    const s = document.getElementById("subs-check");
+    if (s) s.checked = !!saved.subs;
   } catch (e) { /* ignore */ }
 
-  document.getElementById("tool-select").addEventListener("change", (e) => {
-    try { browser.storage.local.set({ tool: e.target.value }); } catch (err) { /* ignore */ }
-  });
+  bindPref("tool-select", "value", "tool");
+  bindPref("quality-select", "value", "quality");
+  bindPref("subs-check", "checked", "subs");
 
   const response = await browser.runtime.sendMessage({
     type: "GET_MEDIA",
@@ -232,6 +333,10 @@ async function init() {
     allUrls = [];
     applyFilter();
   });
+
+  // Live downloads panel (polls the helper while the popup is open).
+  pollDownloads();
+  setInterval(pollDownloads, 2500);
 }
 
 init();

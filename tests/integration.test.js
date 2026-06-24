@@ -49,10 +49,19 @@ global.browser = {
 };
 load("background.js");
 
-// Helper: drive a background onMessage handler with a stubbed fetch.
-async function driveMessage(message) {
+// Drive a background onMessage handler with a stubbed fetch (the grabber/jobs
+// handlers call response.json(), so the stub provides one).
+async function driveMessage(message, jsonBody) {
   let fetched = null;
-  global.fetch = async (url, opts) => { fetched = { url, opts }; return { ok: true, status: 200 }; };
+  const body = jsonBody || {
+    id: 7,
+    jobs: [{ id: 7, url: "https://cdn/s.m3u8", status: "done", pct: 100 }],
+    status: "done", pct: 100, file: "/tmp/x.mp4"
+  };
+  global.fetch = async (url, opts) => {
+    fetched = { url, opts };
+    return { ok: true, status: 200, json: async () => body };
+  };
   let resp = null;
   const ret = msgCb(message, null, r => { resp = r; });
   await new Promise(r => setTimeout(r, 10));
@@ -68,6 +77,8 @@ async function run() {
     assert.strictEqual(typeof global.MAX_PER_TAB, "number");
     assert.strictEqual(global.ABDM_ADD_URL, "http://localhost:15151/add");
     assert.strictEqual(global.GRABBER_URL, "http://localhost:15152/grab");
+    assert.strictEqual(global.GRABBER_JOBS_URL, "http://localhost:15152/jobs");
+    assert.strictEqual(global.GRABBER_STATUS_URL, "http://localhost:15152/status/");
   });
 
   await test("background.js registers webRequest + message listeners", () => {
@@ -120,30 +131,51 @@ async function run() {
     assert.deepStrictEqual(resp, { ok: true, status: 200 });
   });
 
-  await test("background.js: SEND_TO_GRABBER POSTs payload to the grabber and reports ok", async () => {
+  await test("background.js: SEND_TO_GRABBER POSTs to the grabber and returns a job id", async () => {
     const { fetched, resp, ret } = await driveMessage({
       type: "SEND_TO_GRABBER",
-      payload: { url: "https://cdn/s.m3u8", referer: "https://site/", userAgent: "UA/1.0" }
+      payload: { url: "https://cdn/s.m3u8", referer: "https://site/", userAgent: "UA/1.0", format: "worst", subs: true }
     });
     assert.strictEqual(ret, true);
     assert.strictEqual(fetched.url, "http://localhost:15152/grab");
     assert.strictEqual(fetched.opts.method, "POST");
-    const body = JSON.parse(fetched.opts.body);
-    assert.strictEqual(body.url, "https://cdn/s.m3u8");
-    assert.strictEqual(body.referer, "https://site/");
-    assert.deepStrictEqual(resp, { ok: true, status: 200 });
+    const sent = JSON.parse(fetched.opts.body);
+    assert.strictEqual(sent.url, "https://cdn/s.m3u8");
+    assert.strictEqual(sent.format, "worst");
+    assert.strictEqual(sent.subs, true);
+    assert.strictEqual(resp.ok, true);
+    assert.strictEqual(resp.id, 7);
+  });
+
+  await test("background.js: GET_JOBS fetches the job list", async () => {
+    const { fetched, resp } = await driveMessage({ type: "GET_JOBS" });
+    assert.strictEqual(fetched.url, "http://localhost:15152/jobs");
+    assert.ok(Array.isArray(resp.jobs));
+    assert.strictEqual(resp.jobs[0].status, "done");
+  });
+
+  await test("background.js: GET_JOB_STATUS fetches /status/<id> and passes it through", async () => {
+    const { fetched, resp } = await driveMessage({ type: "GET_JOB_STATUS", id: 7 });
+    assert.strictEqual(fetched.url, "http://localhost:15152/status/7");
+    assert.strictEqual(resp.ok, true);
+    assert.strictEqual(resp.status, "done");
+    assert.strictEqual(resp.pct, 100);
   });
 
   await test("popup.js loads + renders an item without reference errors", async () => {
     const el = () => ({
       style: {}, classList: { add() {}, remove() {} },
       addEventListener() {}, appendChild() {}, removeChild() {}, remove() {},
-      focus() {}, select() {}, click() {},
+      replaceChildren() {}, focus() {}, select() {}, click() {},
       value: "all", textContent: "", title: "", onclick: null, onchange: null,
-      disabled: false, innerHTML: "", href: "", download: ""
+      checked: false, disabled: false, innerHTML: "", href: "", download: "", dataset: {}
     });
-    global.document = { getElementById: el, createElement: el, body: { appendChild() {}, removeChild() {} } };
+    global.document = {
+      getElementById: el, createElement: el, createDocumentFragment: el,
+      body: { appendChild() {}, removeChild() {} }
+    };
     global.navigator = { clipboard: { writeText: async () => {} } };
+    global.setInterval = () => 0;  // don't actually start the downloads poller
     global.browser = {
       tabs: { query: async () => [{ id: 1 }], create() {} },
       runtime: {

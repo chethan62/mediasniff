@@ -287,3 +287,73 @@ body {
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #45475a; border-radius: 3px; }
+
+/* Grab quality picker + subtitle toggle (toolbar). */
+#quality-select {
+  background: #313244;
+  border: 1px solid #45475a;
+  border-radius: 6px;
+  color: #cdd6f4;
+  font-size: 12px;
+  padding: 5px 7px;
+  outline: none;
+  cursor: pointer;
+}
+
+#subs-label {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: #a6adc8;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+#subs-label input { cursor: pointer; }
+
+/* Live downloads panel (job progress from the local grabber). */
+#downloads-panel {
+  display: none;
+  max-height: 120px;
+  overflow-y: auto;
+  padding: 6px 12px;
+  background: #181825;
+  border-top: 1px solid #313244;
+}
+
+.dl-title {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #6c7086;
+  margin-bottom: 4px;
+}
+
+.dl-job {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 2px 0;
+  font-size: 11px;
+}
+
+.dl-pct {
+  flex-shrink: 0;
+  min-width: 36px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.dl-name {
+  flex: 1;
+  font-family: monospace;
+  color: #a6adc8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dl-run .dl-pct { color: #89b4fa; }
+.dl-done .dl-pct { color: #1d9e75; }
+.dl-fail .dl-pct { color: #f38ba8; }

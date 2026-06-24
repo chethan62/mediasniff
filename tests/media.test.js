@@ -162,6 +162,10 @@ test("abdmPayload uses an empty header object + downloadPage when none captured"
 test("GRABBER_URL targets the local grabber helper", () => {
   eq(M.GRABBER_URL, "http://localhost:15152/grab");
 });
+test("grabber job-tracking endpoints are the expected localhost URLs", () => {
+  eq(M.GRABBER_JOBS_URL, "http://localhost:15152/jobs");
+  eq(M.GRABBER_STATUS_URL, "http://localhost:15152/status/");
+});
 test("grabberPayload sends url + captured headers", () => {
   const p = M.grabberPayload({ url: "https://cdn/s.m3u8", referer: "https://site/", userAgent: "UA/1.0" });
   eq(p.url, "https://cdn/s.m3u8");

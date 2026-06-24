@@ -15,7 +15,7 @@ Works on **Chrome, Edge, Brave, Opera, Vivaldi and Firefox** (Manifest V3).
   ```bash
   npm run helper        # or: python3 helper/grab.py  (listens on 127.0.0.1:15152)
   ```
-  Click **Grab** on an HLS row right after sniffing (while the token is fresh) — yt-dlp resolves the variant ladder + muxes automatically. Needs `yt-dlp`/`ffmpeg` on PATH.
+  Click **Grab** on an HLS row right after sniffing (while the token is fresh) — yt-dlp resolves the variant ladder + muxes automatically. Needs `yt-dlp`/`ffmpeg` on PATH. The button shows **live progress** (%→Done✓/Failed✗), a **Downloads** panel lists active jobs, and the toolbar **Quality** picker (Best/≤1080p/≤720p/≤480p/Worst) + **Subs** toggle are applied.
 - yt-dlp / ffmpeg command generator — picks sensible flags per media type, and remembers your tool choice across sessions.
 - Captures each stream's `Referer` / `User-Agent` and bakes them into the generated commands, so protected streams that 403 without headers still download.
 - Bulk actions: **Copy all URLs**, **Copy all cmds**, and **Export** to `.txt`, `.json`, or `.m3u` (a playlist you can open straight in VLC).

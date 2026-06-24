@@ -176,7 +176,19 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(msg.payload)
     })
-      .then(r => sendResponse({ ok: r.ok, status: r.status }))
+      .then(r => r.json().then(j => sendResponse({ ok: r.ok, status: r.status, id: j.id })))
+      .catch(err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
+  if (msg.type === "GET_JOBS") {
+    fetch(GRABBER_JOBS_URL)
+      .then(r => r.json().then(j => sendResponse({ ok: r.ok, jobs: j.jobs })))
+      .catch(err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
+  if (msg.type === "GET_JOB_STATUS") {
+    fetch(GRABBER_STATUS_URL + encodeURIComponent(msg.id))
+      .then(r => r.json().then(j => sendResponse({ ok: r.ok, ...j })))
       .catch(err => sendResponse({ ok: false, error: String(err) }));
     return true;
   }

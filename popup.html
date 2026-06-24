@@ -26,6 +26,14 @@
     <option value="yt-dlp">yt-dlp</option>
     <option value="ffmpeg">ffmpeg</option>
   </select>
+  <select id="quality-select" title="Grab quality (yt-dlp format)">
+    <option value="">Best</option>
+    <option value="bestvideo[height&lt;=1080]+bestaudio/best">≤1080p</option>
+    <option value="bestvideo[height&lt;=720]+bestaudio/best">≤720p</option>
+    <option value="bestvideo[height&lt;=480]+bestaudio/best">≤480p</option>
+    <option value="worst">Worst</option>
+  </select>
+  <label id="subs-label" title="Download subtitles with Grab"><input type="checkbox" id="subs-check"> Subs</label>
 </div>
 
 <div id="list-area">
@@ -35,6 +43,8 @@
   </div>
   <ul id="url-list"></ul>
 </div>
+
+<div id="downloads-panel"></div>
 
 <div class="footer">
   <div class="footer-actions">
