@@ -203,7 +203,7 @@ class Handler(BaseHTTPRequestHandler):
     def _cors(self):
         self.send_header("Access-Control-Allow-Origin", "*")
         self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "POST, GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Methods", "POST, GET, DELETE, OPTIONS")
 
     def _json(self, code, obj):
         body = json.dumps(obj).encode()
@@ -272,6 +272,13 @@ class Handler(BaseHTTPRequestHandler):
         }
         threading.Thread(target=run_download, args=(jid,), daemon=True).start()
         return self._json(202, {"ok": True, "started": True, "id": jid})
+
+    def do_DELETE(self):
+        p = urlparse(self.path).path
+        if p == "/jobs":
+            jobs.clear()
+            return self._json(200, {"ok": True})
+        return self._json(404, {"ok": False, "error": "not found"})
 
     def log_message(self, format, *args):  # silence default access logging
         pass

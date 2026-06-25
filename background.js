@@ -192,4 +192,10 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(err => sendResponse({ ok: false, error: String(err) }));
     return true;
   }
+  if (msg.type === "CLEAR_JOBS") {
+    fetch(GRABBER_JOBS_URL, { method: "DELETE" })
+      .then(r => sendResponse({ ok: r.ok, status: r.status }))
+      .catch(err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
 });

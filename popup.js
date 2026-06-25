@@ -130,6 +130,15 @@ function pollJob(btn, id, orig) {
   }, 1500);
 }
 
+function fileIcon(file) {
+  const ext = (file || "").split(".").pop().toLowerCase();
+  if (/^(mp4|mkv|webm|mov|avi|m4v)$/i.test(ext)) return "🎬";
+  if (/^(m4a|mp3|aac|flac|opus|ogg|wav)$/i.test(ext)) return "🎵";
+  if (/^(srt|vtt|ass|ssa)$/i.test(ext)) return "💬";
+  if (/^(m4s|ts)$/i.test(ext)) return "📦";
+  return "📄";
+}
+
 // --- Downloads panel: poll the helper's job list and render progress. ---
 async function pollDownloads() {
   const panel = document.getElementById("downloads-panel");
@@ -152,6 +161,14 @@ async function pollDownloads() {
   const title = document.createElement("div");
   title.className = "dl-title";
   title.textContent = "Downloads";
+  const clearBtn = document.createElement("button");
+  clearBtn.className = "dl-clear";
+  clearBtn.textContent = "Clear";
+  clearBtn.onclick = async () => {
+    try { await browser.runtime.sendMessage({ type: "CLEAR_JOBS" }); } catch (e) { /* offline */ }
+    pollDownloads();
+  };
+  title.appendChild(clearBtn);
   frag.appendChild(title);
   jobs.slice(0, 8).forEach(j => {
     const row = document.createElement("div");
@@ -161,7 +178,7 @@ async function pollDownloads() {
     pct.textContent = j.status === "done" ? "✓" : j.status === "failed" ? "✗" : (Math.floor(j.pct || 0) + "%");
     const name = document.createElement("span");
     name.className = "dl-name";
-    name.textContent = j.file ? String(j.file).split("/").pop() : shortUrl(j.url || "");
+    name.textContent = fileIcon(j.file) + " " + (j.file ? String(j.file).split("/").pop() : shortUrl(j.url || ""));
     name.title = j.url || "";
     row.appendChild(pct);
     row.appendChild(name);

@@ -360,3 +360,15 @@ body {
 .dl-run .dl-pct { color: #89b4fa; }
 .dl-done .dl-pct { color: #1d9e75; }
 .dl-fail .dl-pct { color: #f38ba8; }
+
+.dl-clear {
+  font-size: 9px;
+  padding: 0 5px;
+  margin-left: auto;
+  border-radius: 3px;
+  border: 1px solid #45475a;
+  background: transparent;
+  color: #6c7086;
+  cursor: pointer;
+}
+.dl-clear:hover { background: #313244; color: #f38ba8; }
