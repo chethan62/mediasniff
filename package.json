@@ -1,6 +1,6 @@
 {
   "name": "mediasniff",
-  "version": "1.8.0",
+  "version": "1.8.2",
   "description": "Cross-browser MV3 extension to detect and copy/download video & audio stream URLs.",
   "private": true,
   "scripts": {

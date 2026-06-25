@@ -367,7 +367,7 @@ function buildItem(entry) {
       vli.className = "variant-row";
       const vi = document.createElement("span");
       vi.className = "variant-icon";
-      vi.textContent = v.label.includes("aac") || v.label.includes("opus") || (!v.resolution && v.codecs && (v.codecs.includes("mp4a") || v.codecs.includes("aac") || v.codecs.includes("opus"))) ? "🎵" : "🎬";
+      vi.textContent = v.isAudio ? "🎵" : "🎬";
       const vl = document.createElement("span");
       vl.className = "variant-label";
       vl.textContent = v.label;
