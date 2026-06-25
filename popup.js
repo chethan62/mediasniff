@@ -223,6 +223,39 @@ function typeIcon(entry) {
   return "📄";
 }
 
+function detailText(entry) {
+  const parts = [];
+  const label = entry.label;
+  const ct = (entry.contentType || "").toLowerCase();
+
+  if (label === "HLS") {
+    const p = entry.url.split(/[?#]/)[0].toLowerCase();
+    if (/\/(aac|audio|ac3)($|_|\/)/.test(p)) {
+      parts.push("audio-only variant");
+    } else if (/\/(h264|h265|hevc|vp9)($|_|\/)/.test(p)) {
+      const m = p.match(/\/(h264|h265|hevc|vp9)_(sd|hd|hq|4k)/i);
+      parts.push("video-only variant" + (m ? " · " + m[2] : ""));
+    } else if (/\/(hd|hq|sd)($|_|\/)/.test(p)) {
+      const m = p.match(/\/(hd|hq|sd)/i);
+      parts.push("video-only variant · " + m[1]);
+    } else {
+      parts.push("master playlist");
+    }
+  } else if (label === "DASH") {
+    parts.push("MPEG-DASH manifest");
+  } else if (label === "SRT" || label === "VTT" || label === "ASS") {
+    parts.push("subtitle");
+    if (ct) parts.push(ct);
+  } else if (label === "TS segment") {
+    parts.push("transport stream segment");
+  } else if (ct && label !== "MEDIA") {
+    parts.push(ct);
+  } else if (ct) {
+    parts.push(ct);
+  }
+  return parts.join(" · ");
+}
+
 function buildItem(entry) {
   const li = document.createElement("li");
   li.className = "url-item";
@@ -241,10 +274,25 @@ function buildItem(entry) {
       badge.title += " — master"; badge.classList.add("badge-master");
     }
   }
+
+  const icon = document.createElement("span");
+  icon.className = "icon";
+  icon.textContent = typeIcon(entry);
+
+  const urlCol = document.createElement("div");
+  urlCol.className = "url-col";
+
   const urlSpan = document.createElement("span");
   urlSpan.className = "url-text";
   urlSpan.textContent = shortUrl(entry.url);
   urlSpan.title = entry.url;
+
+  const detail = document.createElement("span");
+  detail.className = "url-detail";
+  const dt = detailText(entry);
+  if (dt) { detail.textContent = dt; urlCol.appendChild(detail); }
+
+  urlCol.appendChild(urlSpan);
 
   const actions = document.createElement("div");
   actions.className = "url-actions";
@@ -289,13 +337,8 @@ function buildItem(entry) {
   actions.appendChild(btnOpen);
 
   li.appendChild(badge);
-
-  const icon = document.createElement("span");
-  icon.className = "icon";
-  icon.textContent = typeIcon(entry);
   li.appendChild(icon);
-
-  li.appendChild(urlSpan);
+  li.appendChild(urlCol);
   li.appendChild(actions);
   return li;
 }
