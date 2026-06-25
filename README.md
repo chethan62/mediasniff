@@ -11,7 +11,7 @@ Works on **Chrome, Edge, Brave, Opera, Vivaldi and Firefox** (Manifest V3).
 - Filter by type + free-text search.
 - Per-URL actions: **Copy** URL, **Cmd** (copy a download command), **DM** (send to AB Download Manager), **Open** in a new tab.
 - **Send to AB Download Manager** — the **DM** button hands the URL + captured `Referer`/`User-Agent` to a running [ABDM](https://github.com/amir1376/ab-download-manager) instance via its local REST API (`http://localhost:15151/add`), for fast segmented downloads outside the browser. *(Direct files only — ABDM can't assemble HLS.)*
-- **Grab (one-click HLS/DASH download)** — the **Grab** button POSTs the URL + headers to a tiny local helper (`helper/grab.py`) that runs **yt-dlp/ffmpeg** outside the browser and saves an `.mp4` to `~/Downloads`. Start the helper first:
+- **Grab (one-click HLS/DASH download)** — the **Grab** button POSTs the URL + headers to a tiny local helper (`helper/grab.py`) that runs **N_m3u8DL-RE** for HLS/DASH (downloads every segment + merges separate video/audio — handles Dailymotion-style streams yt-dlp can't), falling back to yt-dlp/ffmpeg, all outside the browser, saving an `.mp4` to `~/Downloads`. Install N_m3u8DL-RE for robust HLS — the helper auto-detects it on PATH. Start the helper first:
   ```bash
   npm run helper        # or: python3 helper/grab.py  (listens on 127.0.0.1:15152)
   ```

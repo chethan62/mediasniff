@@ -4,12 +4,18 @@ MediaSniff Grabber — a tiny local helper that downloads HLS/DASH (or direct)
 media URLs sniffed by the MediaSniff browser extension, with job tracking
 so the extension can show real progress instead of fire-and-forget.
 
-Features (v1.5 — job tracking, progress, quality picker, subs):
+HLS/DASH (.m3u8/.mpd) are handled by N_m3u8DL-RE when present (parses the
+playlist, downloads every segment concurrently, decrypts AES-128, and merges
+separate video+audio variants to mp4 — robust where yt-dlp's generic extractor
+fails, e.g. Dailymotion partner streams). Direct files fall back to yt-dlp,
+then ffmpeg.
+
+Endpoints:
     POST /grab   {url,referer,userAgent,format?,subs?,audioUrl?}
                  → 202 {"ok":true,"started":true,"id":<int>}
     GET  /jobs                   → {"ok":true,"jobs":[{id,url,status,pct,file}]}
     GET  /status/<id>            → {"ok":true,"id":…,"status":"done"|"failed"|"downloading","pct":…,"file":"…"}
-    GET  /health                 → {"ok":true,"ytdlp":bool,"ffmpeg":bool,"out":"…"}
+    GET  /health                 → {"ok":true,"n_m3u8dl":bool,"ytdlp":bool,"ffmpeg":bool,"out":"…"}
 
 Run:
     python3 helper/grab.py        # 127.0.0.1:15152
@@ -23,6 +29,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse
@@ -31,6 +38,7 @@ PORT = int(os.environ.get("MEDIASNIFF_PORT", "15152"))
 OUT = os.path.expanduser(os.environ.get("MEDIASNIFF_OUT", "~/Downloads"))
 UA_DEFAULT = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"
 
+NM3U8 = shutil.which("N_m3u8DL-RE")
 YTDLP = shutil.which("yt-dlp")
 FFMPEG = shutil.which("ffmpeg")
 
@@ -50,25 +58,51 @@ def _stamp():
     return datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 
 
+def _is_stream(url):
+    path = url.split("?", 1)[0].lower()
+    return path.endswith(".m3u8") or path.endswith(".mpd")
+
+
 def run_download(job_id):
     job = jobs[job_id]
     url = job.get("url")
     referer = job.get("referer") or ""
     ua = job.get("userAgent") or UA_DEFAULT
     audio = job.get("audioUrl") or ""
-    fmt = job.get("format") or ""
+    fmt = (job.get("format") or "").strip()
     subs = job.get("subs", False)
     os.makedirs(OUT, exist_ok=True)
+    name = "mediasniff_%s" % _stamp()
+    out_mp4 = os.path.join(OUT, name + ".mp4")
     job["status"] = "downloading"
     job["pct"] = 0
     try:
-        if audio and FFMPEG:
+        if _is_stream(url) and NM3U8 and not audio:
+            # Dedicated HLS/DASH engine: parse playlist, download every segment
+            # concurrently, decrypt, and merge best video+audio (+subs) to mp4.
+            cmd = [NM3U8, url,
+                   "--tmp-dir", tempfile.gettempdir(),
+                   "--save-dir", OUT, "--save-name", name,
+                   "--thread-count", "8", "-mt",
+                   "--no-log", "--no-ansi-color", "--disable-update-check",
+                   "-M", "format=mp4"]
+            if FFMPEG:
+                cmd += ["--ffmpeg-binary-path", FFMPEG]
+            qv, qa = ("worst", "worst") if fmt == "worst" else ("best", "best")
+            cmd += ["-sv", qv, "-sa", qa]
+            if subs:
+                cmd += ["-ss", "all"]
+            for hname, hval in (("Referer", referer), ("User-Agent", ua)):
+                if hval:
+                    cmd += ["-H", "%s: %s" % (hname, hval)]
+            job["file"] = name + ".mp4"
+        elif audio and FFMPEG:
             # explicit video + audio variant mux (master expired / split renditions).
-            out = os.path.join(OUT, "mediasniff_%s.mp4" % _stamp())
             cmd = [FFMPEG, "-y", "-loglevel", "warning",
                    "-user_agent", ua, "-headers", "Referer: %s\r\n" % referer, "-i", url,
                    "-user_agent", ua, "-headers", "Referer: %s\r\n" % referer, "-i", audio,
-                   "-map", "0:v:0", "-map", "1:a:0", "-c", "copy", out]
+                   "-map", "0:v:0", "-map", "1:a:0", "-c", "copy", out_mp4]
+            job["file"] = name + ".mp4"
         elif YTDLP:
             cmd = [YTDLP, "--newline", "--no-warnings", "-N", "8",
                    "--restrict-filenames", "--merge-output-format", "mp4",
@@ -81,23 +115,32 @@ def run_download(job_id):
                 cmd += ["--write-subs", "--sub-langs", "all"]
             cmd += ["-o", os.path.join(OUT, "%(title).150B_[%(id)s].%(ext)s"), url]
         elif FFMPEG:
-            out = os.path.join(OUT, "mediasniff_%s.mp4" % _stamp())
             cmd = [FFMPEG, "-y", "-loglevel", "warning",
                    "-user_agent", ua, "-headers", "Referer: %s\r\n" % referer,
-                   "-i", url, "-c", "copy", out]
+                   "-i", url, "-c", "copy", out_mp4]
+            job["file"] = name + ".mp4"
         else:
             job["status"] = "failed"
-            job["error"] = "neither yt-dlp nor ffmpeg found"
+            job["error"] = "no downloader (N_m3u8DL-RE / yt-dlp / ffmpeg) found"
             return
 
         log("START", os.path.basename(cmd[0]), "->", url[:90])
         p = subprocess.Popen(
             cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True
         )
+        tail = []
         for line in p.stdout or []:
+            line = line.rstrip()
+            if line:
+                tail.append(line)
+                if len(tail) > 8:
+                    tail.pop(0)
             m = PERCENT_RE.search(line)
             if m:
-                job["pct"] = float(m.group(1))
+                try:
+                    job["pct"] = float(m.group(1))
+                except ValueError:
+                    pass
             m2 = DEST_RE.search(line)
             if m2:
                 job["file"] = m2.group(1).strip()
@@ -109,7 +152,8 @@ def run_download(job_id):
                 job["file"] = url.rsplit("/", 1)[-1].split("?")[0] or "unknown"
         else:
             job["status"] = "failed"
-            job["error"] = "exit %d" % p.returncode
+            err = next((t for t in reversed(tail) if "ERROR" in t.upper()), tail[-1] if tail else "")
+            job["error"] = ("exit %d: %s" % (p.returncode, err))[:300]
         log("DONE rc=%d" % p.returncode, url[:90])
     except Exception as e:  # noqa: BLE001
         job["status"] = "failed"
@@ -141,7 +185,8 @@ class Handler(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         if p == "/health":
             return self._json(200, {
-                "ok": True, "ytdlp": bool(YTDLP), "ffmpeg": bool(FFMPEG), "out": OUT
+                "ok": True, "n_m3u8dl": bool(NM3U8), "ytdlp": bool(YTDLP),
+                "ffmpeg": bool(FFMPEG), "out": OUT
             })
         if p == "/jobs":
             jlist = [{"id": i, **{k: v for k, v in j.items() if k in SAFE_JOB_KEYS}}
@@ -170,8 +215,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._json(400, {"ok": False, "error": "bad json: %s" % e})
         if not data.get("url"):
             return self._json(400, {"ok": False, "error": "missing url"})
-        if not (YTDLP or FFMPEG):
-            return self._json(500, {"ok": False, "error": "yt-dlp/ffmpeg not installed"})
+        if not (NM3U8 or YTDLP or FFMPEG):
+            return self._json(500, {"ok": False, "error": "no downloader installed"})
 
         global _next_id
         jid = _next_id
@@ -194,11 +239,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    if not (YTDLP or FFMPEG):
-        log("WARNING: neither yt-dlp nor ffmpeg on PATH; downloads will fail")
+    if not (NM3U8 or YTDLP or FFMPEG):
+        log("WARNING: no downloader (N_m3u8DL-RE / yt-dlp / ffmpeg) on PATH; downloads will fail")
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
-    log("listening on http://127.0.0.1:%d  (out=%s, yt-dlp=%s, ffmpeg=%s)"
-        % (PORT, OUT, bool(YTDLP), bool(FFMPEG)))
+    log("listening on http://127.0.0.1:%d  (out=%s, N_m3u8DL-RE=%s, yt-dlp=%s, ffmpeg=%s)"
+        % (PORT, OUT, bool(NM3U8), bool(YTDLP), bool(FFMPEG)))
     try:
         srv.serve_forever()
     except KeyboardInterrupt:
