@@ -36,6 +36,16 @@ Then load the unpacked extension (the one manual step):
 Requires `python3` + `curl`; `ffmpeg` + `yt-dlp` recommended (Arch: `sudo pacman -S ffmpeg yt-dlp`).
 The helper autostarts on login — manage it with `systemctl --user status mediasniff-grabber`.
 
+## Windows
+
+The extension and helper are cross-platform. Run the PowerShell installer from the repo folder:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\install.ps1
+```
+
+It installs **N_m3u8DL-RE** (win-x64) to `%LOCALAPPDATA%\Programs\mediasniff`, checks `yt-dlp`/`ffmpeg` (`winget install yt-dlp ffmpeg`), and registers the Grab helper as a **Scheduled Task** that autostarts at logon (windowless). Then load the unpacked extension — **Chrome** `chrome://extensions` / **Edge** `edge://extensions` → Developer mode → **Load unpacked** → this folder. (Chromium loads the repo root directly; Firefox-on-Windows needs `npm run build` via Git Bash/WSL.) ABDM has a Windows build for the DM button.
+
 ## Install (unpacked)
 
 Chromium and Firefox require opposite MV3 background formats, so there are two manifests:

@@ -38,9 +38,29 @@ PORT = int(os.environ.get("MEDIASNIFF_PORT", "15152"))
 OUT = os.path.expanduser(os.environ.get("MEDIASNIFF_OUT", "~/Downloads"))
 UA_DEFAULT = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"
 
-NM3U8 = shutil.which("N_m3u8DL-RE")
-YTDLP = shutil.which("yt-dlp")
-FFMPEG = shutil.which("ffmpeg")
+def _which(name):
+    """Find an executable on PATH, then in common per-user bin dirs (cross-platform:
+    Linux ~/.local/bin, Windows %LOCALAPPDATA%\\Programs\\mediasniff, or $MEDIASNIFF_BIN)."""
+    p = shutil.which(name)
+    if p:
+        return p
+    exts = [""] + (os.environ.get("PATHEXT", "").split(os.pathsep) if os.name == "nt" else [])
+    dirs = [os.environ.get("MEDIASNIFF_BIN", ""),
+            os.path.expanduser("~/.local/bin"),
+            os.path.join(os.environ.get("LOCALAPPDATA", ""), "Programs", "mediasniff")]
+    for d in dirs:
+        if not d:
+            continue
+        for ext in exts:
+            cand = os.path.join(d, name + ext)
+            if os.path.isfile(cand):
+                return cand
+    return None
+
+
+NM3U8 = _which("N_m3u8DL-RE")
+YTDLP = _which("yt-dlp")
+FFMPEG = _which("ffmpeg")
 
 jobs = {}          # id → {url, referer, userAgent, format, subs, audioUrl, status, pct, file, error}
 _next_id = 1
