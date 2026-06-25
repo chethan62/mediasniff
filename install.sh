@@ -108,6 +108,12 @@ fi
 
 # 5. helper autostart service (systemd; graceful fallback otherwise) ---------
 export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}"
+
+# RAM staging dir for grabber (SSD-friendly).
+if [ -d /dev/shm ] && [ -w /dev/shm ]; then
+  mkdir -p /dev/shm/mediasniff && c_log "RAM stage: /dev/shm/mediasniff"
+fi
+
 if have systemctl && systemctl --user show-environment >/dev/null 2>&1; then
   c_log "registering autostart service ($SERVICE) ..."
   unitdir="$HOME/.config/systemd/user"; mkdir -p "$unitdir"
