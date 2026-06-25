@@ -20,6 +20,22 @@ Works on **Chrome, Edge, Brave, Opera, Vivaldi and Firefox** (Manifest V3).
 - Captures each stream's `Referer` / `User-Agent` and bakes them into the generated commands, so protected streams that 403 without headers still download.
 - Bulk actions: **Copy all URLs**, **Copy all cmds**, and **Export** to `.txt`, `.json`, or `.m3u` (a playlist you can open straight in VLC).
 
+## Quick install (Linux)
+
+One command installs the HLS engine (**N_m3u8DL-RE**), builds the extension, and
+registers the Grab helper as an **autostart** systemd user service — so the whole
+stack works after a single run (idempotent, safe to re-run):
+
+```bash
+bash install.sh        # or:  npm run setup
+```
+
+Then load the unpacked extension (the one manual step):
+**Chromium / Vivaldi** → `chrome://extensions` → enable **Developer mode** → **Load unpacked** → this folder.
+
+Requires `python3` + `curl`; `ffmpeg` + `yt-dlp` recommended (Arch: `sudo pacman -S ffmpeg yt-dlp`).
+The helper autostarts on login — manage it with `systemctl --user status mediasniff-grabber`.
+
 ## Install (unpacked)
 
 Chromium and Firefox require opposite MV3 background formats, so there are two manifests:
