@@ -179,5 +179,23 @@ test("isStream is true only for HLS/DASH", () => {
   ok(!M.isStream({ label: "AUDIO" }));
 });
 
+// ---- live-test fixes: filter segments + ad junk, strip #fragment ----
+test("isMediaUrl rejects individual HLS/DASH segments (.ts/.m4s/init)", () => {
+  ok(!M.isMediaUrl("https://cdn/video/0.m4s", "video/mp4"));
+  ok(!M.isMediaUrl("https://cdn/seg-5.ts", "video/mp2t"));
+  ok(!M.isMediaUrl("https://cdn/h264_hd/2/init.mp4", "video/mp4"));
+});
+test("isMediaUrl rejects ad / cookie-sync / error endpoints", () => {
+  ok(!M.isMediaUrl("https://dmxleo.dailymotion.com/cdn/manifest/video/x.m3u8?error=1108", ""));
+  ok(!M.isMediaUrl("https://dmxleo.dailymotion.com/cdn/manifest/video/x.m3u8?bs=1&cookie_sync_ab_gk=1&eb=https%3A%2F%2Fanime4i.com%2F", ""));
+});
+test("isMediaUrl still accepts the real master m3u8 (sec/query, no junk)", () => {
+  ok(M.isMediaUrl("https://cdndirector.dailymotion.com/cdn/manifest/video/xaf8136.m3u8?sec=ABC&dmTs=551759", ""));
+});
+test("realExt/labelUrl strip the #fragment (manifest.m3u8#cell=cf3 -> HLS)", () => {
+  eq(M.realExt("https://vod3/h264_hd/2/manifest.m3u8#cell=cf3"), "m3u8");
+  eq(M.labelUrl("https://vod3/h264_hd/2/manifest.m3u8#cell=cf3"), "HLS");
+});
+
 console.log("\n" + pass + " passed, " + fail + " failed");
 process.exit(fail ? 1 : 0);

@@ -79,7 +79,7 @@ def _stamp():
 
 
 def _is_stream(url):
-    path = url.split("?", 1)[0].lower()
+    path = url.split("?", 1)[0].split("#", 1)[0].lower()
     return path.endswith(".m3u8") or path.endswith(".mpd")
 
 
@@ -92,7 +92,7 @@ def run_download(job_id):
     fmt = (job.get("format") or "").strip()
     subs = job.get("subs", False)
     os.makedirs(OUT, exist_ok=True)
-    name = "mediasniff_%s" % _stamp()
+    name = "mediasniff_%s_%d" % (_stamp(), job_id)
     out_mp4 = os.path.join(OUT, name + ".mp4")
     job["status"] = "downloading"
     job["pct"] = 0

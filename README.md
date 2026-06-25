@@ -24,7 +24,7 @@ step at the end. (Set `MEDIASNIFF_DIR` to choose the clone location.)
 
 ## Features
 
-- Sniffs media requests live via the `webRequest` API; a per-tab toolbar badge shows the count.
+- Sniffs media requests live via the `webRequest` API; a per-tab toolbar badge shows the count. Individual segments (`.ts`/`.m4s`/`init`) and ad/cookie-sync/`?error=` URLs are filtered out, so you see the real manifests — not a wall of fragments.
 - Color-coded type detection: `HLS`, `DASH`, `MP4`, `WEBM`, `AUDIO`, `TS`, `MEDIA`.
 - Filter by type + free-text search.
 - Per-URL actions: **Copy** URL, **Cmd** (copy a download command), **DM** (send to AB Download Manager), **Open** in a new tab.
