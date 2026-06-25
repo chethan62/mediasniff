@@ -33,7 +33,10 @@ bash install.sh        # or:  npm run setup
 Then load the unpacked extension (the one manual step):
 **Chromium / Vivaldi** → `chrome://extensions` → enable **Developer mode** → **Load unpacked** → this folder.
 
-Requires `python3` + `curl`; `ffmpeg` + `yt-dlp` recommended (Arch: `sudo pacman -S ffmpeg yt-dlp`).
+Works on any **systemd Linux** (Debian/Ubuntu, Fedora, Arch, openSUSE, …) — the installer
+detects your package manager for dependency hints and picks the right N_m3u8DL-RE build
+(x64/arm64, glibc/musl). Needs `python3` + `curl`; `ffmpeg`/`yt-dlp` recommended.
+No user systemd (Void/OpenRC, minimal WSL, …)? It prints how to run the helper manually.
 The helper autostarts on login — manage it with `systemctl --user status mediasniff-grabber`.
 
 ## Windows
