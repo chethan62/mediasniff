@@ -57,7 +57,8 @@ test("labelUrl is not fooled by query strings (m3u8 with ?x=ad.mp4 stays HLS)", 
   eq(M.labelUrl("https://h/stream.m3u8?ad=promo.mp4"), "HLS");
 });
 test("labelUrl falls back to MEDIA for unknown/extensionless", () => {
-  eq(M.labelUrl("https://h/movie.mkv"), "MEDIA");
+  eq(M.labelUrl("https://h/play.mkv"), "MKV");
+  eq(M.labelUrl("https://h/movie.srt"), "SRT");
   eq(M.labelUrl("https://h/play"), "MEDIA");
 });
 

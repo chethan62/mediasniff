@@ -127,6 +127,20 @@ body {
 .badge-var { opacity: 0.65; }
 .badge-master { box-shadow: 0 0 0 1px #f9e2af; }
 
+.icon {
+  flex-shrink: 0;
+  font-size: 13px;
+  margin-right: -4px;
+}
+
+.badge-MKV    { background: #40a02b; color: #e6f5e1; }
+.badge-AVI    { background: #1e66f5; color: #e6effd; }
+.badge-MOV    { background: #dd7878; color: #fce8e8; }
+.badge-WAV    { background: #df8e1d; color: #fdf2e3; }
+.badge-SRT    { background: #7c3aed; color: #ede9fe; }
+.badge-VTT    { background: #8839ef; color: #ede9fe; }
+.badge-ASS    { background: #9b59b6; color: #f3e8fb; }
+
 .url-text {
   flex: 1;
   font-size: 11px;

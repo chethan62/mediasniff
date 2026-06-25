@@ -14,6 +14,13 @@ function badgeClass(label) {
     "MP4": "badge-MP4",
     "AUDIO": "badge-AUDIO",
     "WEBM": "badge-WEBM",
+    "MKV": "badge-MKV",
+    "AVI": "badge-AVI",
+    "MOV": "badge-MOV",
+    "WAV": "badge-WAV",
+    "SRT": "badge-SRT",
+    "VTT": "badge-VTT",
+    "ASS": "badge-ASS",
     "TS segment": "badge-TS",
     "MEDIA": "badge-MEDIA"
   };
@@ -207,6 +214,15 @@ function exportList(list, fmt) {
   downloadBlob(`mediasniff-${stamp}.${ext}`, exportContent(list, fmt), mime);
 }
 
+function typeIcon(entry) {
+  const label = entry.label;
+  if (label === "HLS" || label === "DASH" || label === "MP4" || label === "WEBM" || label === "MKV" || label === "AVI" || label === "MOV") return "🎬";
+  if (label === "AUDIO" || label === "WAV") return "🎵";
+  if (label === "SRT" || label === "VTT" || label === "ASS") return "💬";
+  if (label === "TS segment") return "📦";
+  return "📄";
+}
+
 function buildItem(entry) {
   const li = document.createElement("li");
   li.className = "url-item";
@@ -273,6 +289,12 @@ function buildItem(entry) {
   actions.appendChild(btnOpen);
 
   li.appendChild(badge);
+
+  const icon = document.createElement("span");
+  icon.className = "icon";
+  icon.textContent = typeIcon(entry);
+  li.appendChild(icon);
+
   li.appendChild(urlSpan);
   li.appendChild(actions);
   return li;
