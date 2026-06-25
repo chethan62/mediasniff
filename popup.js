@@ -197,7 +197,17 @@ function buildItem(entry) {
   const badge = document.createElement("span");
   badge.className = "badge " + badgeClass(entry.label);
   badge.textContent = entry.label;
-
+  badge.title = entry.label;
+  if (entry.label === "HLS") {
+    const p = entry.url.split(/[?#]/)[0].toLowerCase();
+    if (/\/(aac|audio|ac3)($|_|\/)/.test(p)) {
+      badge.title += " — audio-only variant"; badge.classList.add("badge-var");
+    } else if (/\/(h264|h265|hevc|vp9|hd|hq)($|_|\/)/.test(p)) {
+      badge.title += " — video-only variant"; badge.classList.add("badge-var");
+    } else {
+      badge.title += " — master"; badge.classList.add("badge-master");
+    }
+  }
   const urlSpan = document.createElement("span");
   urlSpan.className = "url-text";
   urlSpan.textContent = shortUrl(entry.url);
