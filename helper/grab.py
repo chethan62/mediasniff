@@ -38,16 +38,6 @@ PORT = int(os.environ.get("MEDIASNIFF_PORT", "15152"))
 OUT = os.path.expanduser(os.environ.get("MEDIASNIFF_OUT", "~/Downloads"))
 UA_DEFAULT = "Mozilla/5.0 (X11; Linux x86_64; rv:130.0) Gecko/20100101 Firefox/130.0"
 
-# RAM staging: download to /dev/shm (tmpfs) first, then move to OUT.
-# Safer for SSD lifespan. Fall back to OUT directly if /dev/shm is unavailable.
-_STAGE_BASE = os.environ.get("MEDIASNIFF_STAGE", "")
-if _STAGE_BASE:
-    STAGE = _STAGE_BASE
-elif os.path.isdir("/dev/shm") and os.access("/dev/shm", os.W_OK):
-    STAGE = "/dev/shm/mediasniff"
-else:
-    STAGE = ""  # fall back to OUT directly
-
 def _which(name):
     """Find an executable on PATH, then in common per-user bin dirs (cross-platform:
     Linux ~/.local/bin, Windows %LOCALAPPDATA%\\Programs\\mediasniff, or $MEDIASNIFF_BIN)."""
@@ -117,26 +107,18 @@ def run_download(job_id):
         safe_fn = _safe_name(user_name)
     else:
         safe_fn = "mediasniff_%s_%d" % (_stamp(), job_id)
-
-    # RAM staging: download here first, then move to OUT.
-    if STAGE:
-        stage_dir = tempfile.mkdtemp(prefix="job%d_" % job_id, dir=STAGE)
-        os.makedirs(stage_dir, exist_ok=True)
-        save_dir = stage_dir
-    else:
-        stage_dir = None
-        save_dir = OUT
-
-    out_mp4 = os.path.join(save_dir, safe_fn + ".mp4")
+    out_mp4 = os.path.join(OUT, safe_fn + ".mp4")
     job["status"] = "downloading"
     job["pct"] = 0
     try:
         if _is_stream(url) and NM3U8 and not audio:
             # Dedicated HLS/DASH engine: parse playlist, download every segment
-            # concurrently, decrypt, and merge best video+audio (+subs) to mp4.
+            # concurrently (segments go to --tmp-dir on tmpfs /tmp), then merge
+            # to OUT. The --tmp-dir on RAM already protects the SSD from hundreds
+            # of small segment writes; the final merge is one sequential write.
             cmd = [NM3U8, url,
                    "--tmp-dir", tempfile.gettempdir(),
-                   "--save-dir", save_dir, "--save-name", safe_fn,
+                   "--save-dir", OUT, "--save-name", safe_fn,
                    "--thread-count", "8", "-mt",
                    "--no-log", "--no-ansi-color", "--disable-update-check",
                    "-M", "format=mp4"]
@@ -169,9 +151,9 @@ def run_download(job_id):
                 cmd += ["--write-subs", "--sub-langs", "all"]
             if user_name:
                 # extension gave us a name — use it (no title-guessing)
-                cmd += ["-o", os.path.join(save_dir, safe_fn + ".%(ext)s"), url]
+                cmd += ["-o", os.path.join(OUT, safe_fn + ".%(ext)s"), url]
             else:
-                cmd += ["-o", os.path.join(save_dir, "%(title).150B_[%(id)s].%(ext)s"), url]
+                cmd += ["-o", os.path.join(OUT, "%(title).150B_[%(id)s].%(ext)s"), url]
         elif FFMPEG:
             cmd = [FFMPEG, "-y", "-loglevel", "warning",
                    "-user_agent", ua, "-headers", "Referer: %s\r\n" % referer,
@@ -208,9 +190,6 @@ def run_download(job_id):
             job["pct"] = 100
             if "file" not in job:
                 job["file"] = url.rsplit("/", 1)[-1].split("?")[0] or "unknown"
-            # Move completed files from RAM stage to OUT.
-            if stage_dir:
-                _move_to_out(job, stage_dir, OUT)
         else:
             job["status"] = "failed"
             err = next((t for t in reversed(tail) if "ERROR" in t.upper()), tail[-1] if tail else "")
@@ -220,28 +199,6 @@ def run_download(job_id):
         job["status"] = "failed"
         job["error"] = str(e)[:300]
         log("EXC", repr(e))
-    finally:
-        # Clean up empty stage dir
-        if stage_dir and os.path.isdir(stage_dir):
-            try:
-                if not os.listdir(stage_dir):
-                    os.rmdir(stage_dir)
-            except OSError:
-                pass
-
-
-def _move_to_out(job, stage_dir, out_dir):
-    """Move downloaded files from RAM stage to the output directory."""
-    try:
-        for fn in os.listdir(stage_dir):
-            src = os.path.join(stage_dir, fn)
-            dst = os.path.join(out_dir, fn)
-            if os.path.isfile(src):
-                shutil.move(src, dst)
-                job["file"] = fn  # update to final filename
-                log("MOVED", fn, "→", out_dir)
-    except Exception as e:
-        log("MOVE-ERR", repr(e))
 
 
 class Handler(BaseHTTPRequestHandler):
