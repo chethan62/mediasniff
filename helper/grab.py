@@ -11,7 +11,7 @@ fails, e.g. Dailymotion partner streams). Direct files fall back to yt-dlp,
 then ffmpeg.
 
 Endpoints:
-    POST /grab   {url,referer,userAgent,format?,subs?,audioUrl?}
+    POST /grab   {url,referer,userAgent,name?,format?,subs?,audioUrl?}
                  → 202 {"ok":true,"started":true,"id":<int>}
     GET  /jobs                   → {"ok":true,"jobs":[{id,url,status,pct,file}]}
     GET  /status/<id>            → {"ok":true,"id":…,"status":"done"|"failed"|"downloading","pct":…,"file":"…"}
@@ -62,12 +62,21 @@ NM3U8 = _which("N_m3u8DL-RE")
 YTDLP = _which("yt-dlp")
 FFMPEG = _which("ffmpeg")
 
-jobs = {}          # id → {url, referer, userAgent, format, subs, audioUrl, status, pct, file, error}
+jobs = {}          # id → {url, referer, userAgent, name, format, subs, audioUrl, status, pct, file, error}
 _next_id = 1
 SAFE_JOB_KEYS = {"url", "status", "pct", "file", "error", "format", "subs"}
 
 PERCENT_RE = re.compile(r"([\d.]+)%")
 DEST_RE = re.compile(r"Destination:\s*(.+)")
+
+# Strip characters unsafe in filenames across platforms.
+_FNAME_BAD_RE = re.compile(r'[\\/:<>|?*"]')
+
+
+def _safe_name(text, max_len=200):
+    """Return a filesystem-safe name from user-provided text (e.g. page title)."""
+    s = _FNAME_BAD_RE.sub("_", (text or "").strip()).strip(". ")
+    return s[:max_len] if s else "download"
 
 
 def log(*a):
@@ -92,8 +101,13 @@ def run_download(job_id):
     fmt = (job.get("format") or "").strip()
     subs = job.get("subs", False)
     os.makedirs(OUT, exist_ok=True)
-    name = "mediasniff_%s_%d" % (_stamp(), job_id)
-    out_mp4 = os.path.join(OUT, name + ".mp4")
+    # Use the page-title name if the extension sent one, otherwise a unique stamp.
+    user_name = (job.get("name") or "").strip()
+    if user_name:
+        safe_fn = _safe_name(user_name)
+    else:
+        safe_fn = "mediasniff_%s_%d" % (_stamp(), job_id)
+    out_mp4 = os.path.join(OUT, safe_fn + ".mp4")
     job["status"] = "downloading"
     job["pct"] = 0
     try:
@@ -102,7 +116,7 @@ def run_download(job_id):
             # concurrently, decrypt, and merge best video+audio (+subs) to mp4.
             cmd = [NM3U8, url,
                    "--tmp-dir", tempfile.gettempdir(),
-                   "--save-dir", OUT, "--save-name", name,
+                   "--save-dir", OUT, "--save-name", safe_fn,
                    "--thread-count", "8", "-mt",
                    "--no-log", "--no-ansi-color", "--disable-update-check",
                    "-M", "format=mp4"]
@@ -115,14 +129,14 @@ def run_download(job_id):
             for hname, hval in (("Referer", referer), ("User-Agent", ua)):
                 if hval:
                     cmd += ["-H", "%s: %s" % (hname, hval)]
-            job["file"] = name + ".mp4"
+            job["file"] = safe_fn + ".mp4"
         elif audio and FFMPEG:
             # explicit video + audio variant mux (master expired / split renditions).
             cmd = [FFMPEG, "-y", "-loglevel", "warning",
                    "-user_agent", ua, "-headers", "Referer: %s\r\n" % referer, "-i", url,
                    "-user_agent", ua, "-headers", "Referer: %s\r\n" % referer, "-i", audio,
                    "-map", "0:v:0", "-map", "1:a:0", "-c", "copy", out_mp4]
-            job["file"] = name + ".mp4"
+            job["file"] = safe_fn + ".mp4"
         elif YTDLP:
             cmd = [YTDLP, "--newline", "--no-warnings", "-N", "8",
                    "--restrict-filenames", "--merge-output-format", "mp4",
@@ -133,12 +147,16 @@ def run_download(job_id):
                 cmd += ["-f", fmt]
             if subs:
                 cmd += ["--write-subs", "--sub-langs", "all"]
-            cmd += ["-o", os.path.join(OUT, "%(title).150B_[%(id)s].%(ext)s"), url]
+            if user_name:
+                # extension gave us a name — use it (no title-guessing)
+                cmd += ["-o", os.path.join(OUT, safe_fn + ".%(ext)s"), url]
+            else:
+                cmd += ["-o", os.path.join(OUT, "%(title).150B_[%(id)s].%(ext)s"), url]
         elif FFMPEG:
             cmd = [FFMPEG, "-y", "-loglevel", "warning",
                    "-user_agent", ua, "-headers", "Referer: %s\r\n" % referer,
                    "-i", url, "-c", "copy", out_mp4]
-            job["file"] = name + ".mp4"
+            job["file"] = safe_fn + ".mp4"
         else:
             job["status"] = "failed"
             job["error"] = "no downloader (N_m3u8DL-RE / yt-dlp / ffmpeg) found"
@@ -245,6 +263,7 @@ class Handler(BaseHTTPRequestHandler):
             "url": data["url"],
             "referer": data.get("referer", ""),
             "userAgent": data.get("userAgent", "") or UA_DEFAULT,
+            "name": data.get("name", ""),
             "format": data.get("format", ""),
             "subs": data.get("subs", False),
             "audioUrl": data.get("audioUrl", ""),

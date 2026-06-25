@@ -5,6 +5,7 @@ const browser = globalThis.browser ?? globalThis.chrome;
 // grabberPayload come from lib/media.js (loaded first in popup.html).
 
 let allUrls = [];
+let pageTitle = "";
 
 function badgeClass(label) {
   const map = {
@@ -90,6 +91,8 @@ async function doGrab(entry, btn) {
     if (q && q.value) payload.format = q.value;
     const subs = document.getElementById("subs-check");
     if (subs && subs.checked) payload.subs = true;
+
+    if (pageTitle) payload.name = pageTitle;
 
     const res = await browser.runtime.sendMessage({ type: "SEND_TO_GRABBER", payload });
     if (res && res.ok && res.id != null) {
@@ -300,6 +303,7 @@ async function init() {
   const tabs = await browser.tabs.query({ active: true, currentWindow: true });
   const tab = tabs[0];
   if (!tab) return;
+  pageTitle = tab.title || "";
 
   // Restore saved prefs (tool / quality / subs).
   try {
