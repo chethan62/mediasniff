@@ -230,7 +230,9 @@ function detailText(entry) {
 
   if (label === "HLS") {
     const p = entry.url.split(/[?#]/)[0].toLowerCase();
-    if (/\/(aac|audio|ac3)($|_|\/)/.test(p)) {
+    if (entry.variants && entry.variants.length) {
+      parts.push("master playlist · " + entry.variants.length + " variants");
+    } else if (/\/(aac|audio|ac3)($|_|\/)/.test(p)) {
       parts.push("audio-only variant");
     } else if (/\/(h264|h265|hevc|vp9)($|_|\/)/.test(p)) {
       const m = p.match(/\/(h264|h265|hevc|vp9)_(sd|hd|hq|4k)/i);
@@ -253,7 +255,55 @@ function detailText(entry) {
   } else if (ct) {
     parts.push(ct);
   }
+  if (entry.contentLength) {
+    parts.push(formatFileSize(entry.contentLength));
+  }
   return parts.join(" · ");
+}
+
+function buildActions(entry) {
+  const actions = document.createElement("div");
+  actions.className = "url-actions";
+
+  const btnCopy = document.createElement("button");
+  btnCopy.className = "btn-copy";
+  btnCopy.textContent = "Copy";
+  btnCopy.onclick = (e) => { e.stopPropagation(); copyText(entry.url, btnCopy); };
+
+  const btnCmd = document.createElement("button");
+  btnCmd.className = "btn-cmd";
+  btnCmd.textContent = "Cmd";
+  btnCmd.title = (entry.referer || entry.userAgent)
+    ? "Copy download command (includes captured Referer/User-Agent)"
+    : "Copy download command";
+  btnCmd.onclick = (e) => { e.stopPropagation(); copyText(buildCommand(entry, currentTool()), btnCmd); };
+
+  actions.appendChild(btnCopy);
+  actions.appendChild(btnCmd);
+
+  if (!isStream(entry)) {
+    const btnDm = document.createElement("button");
+    btnDm.className = "btn-dm";
+    btnDm.textContent = "DM";
+    btnDm.title = "Send to AB Download Manager (direct files only — ABDM can't assemble HLS)";
+    btnDm.onclick = (e) => { e.stopPropagation(); sendMsg("SEND_TO_ABDM", abdmPayload(entry), btnDm, "Sent!", "ABDM?"); };
+    actions.appendChild(btnDm);
+  }
+
+  const btnGrab = document.createElement("button");
+  btnGrab.className = "btn-grab";
+  btnGrab.textContent = "Grab";
+  btnGrab.title = "Download via the local grabber";
+  btnGrab.onclick = (e) => { e.stopPropagation(); doGrab(entry, btnGrab); };
+  actions.appendChild(btnGrab);
+
+  const btnOpen = document.createElement("button");
+  btnOpen.className = "btn-open";
+  btnOpen.textContent = "Open";
+  btnOpen.onclick = (e) => { e.stopPropagation(); browser.tabs.create({ url: entry.url }); };
+  actions.appendChild(btnOpen);
+
+  return actions;
 }
 
 function buildItem(entry) {
@@ -266,7 +316,9 @@ function buildItem(entry) {
   badge.title = entry.label;
   if (entry.label === "HLS") {
     const p = entry.url.split(/[?#]/)[0].toLowerCase();
-    if (/\/(aac|audio|ac3)($|_|\/)/.test(p)) {
+    if (entry.variants && entry.variants.length) {
+      badge.title += " — master"; badge.classList.add("badge-master");
+    } else if (/\/(aac|audio|ac3)($|_|\/)/.test(p)) {
       badge.title += " — audio-only variant"; badge.classList.add("badge-var");
     } else if (/\/(h264|h265|hevc|vp9|hd|hq)($|_|\/)/.test(p)) {
       badge.title += " — video-only variant"; badge.classList.add("badge-var");
@@ -294,52 +346,48 @@ function buildItem(entry) {
 
   urlCol.appendChild(urlSpan);
 
-  const actions = document.createElement("div");
-  actions.className = "url-actions";
-
-  const btnCopy = document.createElement("button");
-  btnCopy.className = "btn-copy";
-  btnCopy.textContent = "Copy";
-  btnCopy.onclick = () => copyText(entry.url, btnCopy);
-
-  const btnCmd = document.createElement("button");
-  btnCmd.className = "btn-cmd";
-  btnCmd.textContent = "Cmd";
-  btnCmd.title = (entry.referer || entry.userAgent)
-    ? "Copy download command (includes captured Referer/User-Agent)"
-    : "Copy download command";
-  btnCmd.onclick = () => copyText(buildCommand(entry, currentTool()), btnCmd);
-
-  let btnDm = null;
-  if (!isStream(entry)) {
-    btnDm = document.createElement("button");
-    btnDm.className = "btn-dm";
-    btnDm.textContent = "DM";
-    btnDm.title = "Send to AB Download Manager (direct files only — ABDM can't assemble HLS)";
-    btnDm.onclick = () => sendMsg("SEND_TO_ABDM", abdmPayload(entry), btnDm, "Sent!", "ABDM?");
-  }
-
-  const btnGrab = document.createElement("button");
-  btnGrab.className = "btn-grab";
-  btnGrab.textContent = "Grab";
-  btnGrab.title = "Download via the local grabber (yt-dlp/ffmpeg) with live progress. Start it with: npm run helper";
-  btnGrab.onclick = () => doGrab(entry, btnGrab);
-
-  const btnOpen = document.createElement("button");
-  btnOpen.className = "btn-open";
-  btnOpen.textContent = "Open";
-  btnOpen.onclick = () => browser.tabs.create({ url: entry.url });
-
-  actions.appendChild(btnCopy);
-  actions.appendChild(btnCmd);
-  if (btnDm) actions.appendChild(btnDm);
-  actions.appendChild(btnGrab);
-  actions.appendChild(btnOpen);
-
   li.appendChild(badge);
   li.appendChild(icon);
   li.appendChild(urlCol);
-  li.appendChild(actions);
+
+  if (entry.variants && entry.variants.length) {
+    // Master with variants — expandable
+    const expand = document.createElement("span");
+    expand.className = "expand-toggle";
+    expand.textContent = "▸";
+    li.appendChild(expand);
+    li.classList.add("has-variants");
+    li.style.cursor = "pointer";
+
+    const variantList = document.createElement("ul");
+    variantList.className = "variant-list";
+    variantList.style.display = "none";
+    entry.variants.forEach(v => {
+      const vli = document.createElement("li");
+      vli.className = "variant-row";
+      const vi = document.createElement("span");
+      vi.className = "variant-icon";
+      vi.textContent = v.label.includes("aac") || v.label.includes("opus") || (!v.resolution && v.codecs && (v.codecs.includes("mp4a") || v.codecs.includes("aac") || v.codecs.includes("opus"))) ? "🎵" : "🎬";
+      const vl = document.createElement("span");
+      vl.className = "variant-label";
+      vl.textContent = v.label;
+      const va = buildActions({ url: v.url, label: "HLS", contentType: entry.contentType, referer: entry.referer, userAgent: entry.userAgent });
+      vli.appendChild(vi);
+      vli.appendChild(vl);
+      vli.appendChild(va);
+      variantList.appendChild(vli);
+    });
+    li.appendChild(variantList);
+
+    li.addEventListener("click", () => {
+      const vis = variantList.style.display === "none";
+      variantList.style.display = vis ? "block" : "none";
+      expand.textContent = vis ? "▾" : "▸";
+    });
+  } else {
+    li.appendChild(buildActions(entry));
+  }
+
   return li;
 }
 
@@ -384,6 +432,31 @@ function applyFilter() {
     const fmt = exportSel.value;
     if (fmt) { exportList(filtered, fmt); exportSel.value = ""; }
   };
+
+  // Batch Grab: send all eligible entries to the grabber.
+  const grabAll = document.getElementById("btn-grab-all");
+  if (grabAll) {
+    const eligible = filtered.filter(e => true); // all entries can go to grabber
+    grabAll.disabled = !eligible.length;
+    grabAll.onclick = async () => {
+      grabAll.textContent = "…";
+      grabAll.disabled = true;
+      for (const e of eligible) {
+        try {
+          const payload = grabberPayload(e);
+          const q = document.getElementById("quality-select");
+          if (q && q.value) payload.format = q.value;
+          const subs = document.getElementById("subs-check");
+          if (subs && subs.checked) payload.subs = true;
+          if (pageTitle) payload.name = pageTitle;
+          await browser.runtime.sendMessage({ type: "SEND_TO_GRABBER", payload });
+        } catch (err) { /* continue */ }
+      }
+      grabAll.textContent = "Sent!";
+      grabAll.classList.add("copied");
+      setTimeout(() => { grabAll.textContent = "Grab All"; grabAll.classList.remove("copied"); grabAll.disabled = false; }, 2000);
+    };
+  }
 }
 
 function bindPref(id, prop, key) {

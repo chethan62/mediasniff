@@ -102,25 +102,53 @@ browser.webRequest.onResponseStarted.addListener(
     );
     const contentType = ctHeader ? ctHeader.value : "";
 
+    // Content-Length for direct files (display size in popup).
+    const clHeader = (responseHeaders || []).find(
+      h => h.name.toLowerCase() === "content-length"
+    );
+    const contentLength = clHeader ? parseInt(clHeader.value, 10) || 0 : 0;
+
     if (!isMediaUrl(url, contentType)) return;
 
     await hydrate();
 
     if (!mediaByTab[tabId]) mediaByTab[tabId] = [];
     if (mediaByTab[tabId].some(e => e.url === url)) return;
-    if (mediaByTab[tabId].length >= MAX_PER_TAB) return;     // bound per-tab growth
+    if (mediaByTab[tabId].length >= MAX_PER_TAB) return;
 
     const hk = tabId + "\n" + url;
     const hdr = headersByReq[hk] || {};
 
-    mediaByTab[tabId].push({
+    const entry = {
       url,
       label: labelUrl(url),
       contentType: contentType || "unknown",
       ts: timeStamp,
       referer: hdr.referer || "",
-      userAgent: hdr.userAgent || ""
-    });
+      userAgent: hdr.userAgent || "",
+      contentLength: contentLength > 0 ? contentLength : null
+    };
+
+    // If this is an HLS master manifest, fetch and parse its variants eagerly.
+    if (entry.label === "HLS" && entry.contentType.includes("mpegurl")) {
+      try {
+        const fetchHeaders = {};
+        if (entry.referer) fetchHeaders["Referer"] = entry.referer;
+        if (entry.userAgent) fetchHeaders["User-Agent"] = entry.userAgent;
+        const res = await fetch(url, { headers: fetchHeaders, signal: AbortSignal.timeout(8000) });
+        if (res.ok) {
+          const text = await res.text();
+          if (typeof isMasterM3U8 === "function" && isMasterM3U8(text)) {
+            const variants = typeof parseMasterM3U8 === "function"
+              ? parseMasterM3U8(text, url)
+              : [];
+            if (variants.length) entry.variants = variants;
+          }
+        }
+      } catch (e) { /* network error or non-master — skip */ }
+    }
+
+    mediaByTab[tabId].push(entry);
     delete headersByReq[hk];
 
     persist(tabId);

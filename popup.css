@@ -403,3 +403,80 @@ body {
   cursor: pointer;
 }
 .dl-clear:hover { background: #313244; color: #f38ba8; }
+
+/* Expandable variant groups */
+.has-variants {
+  flex-wrap: wrap;
+}
+
+.expand-toggle {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: #6c7086;
+  margin-right: 2px;
+  user-select: none;
+}
+
+.variant-list {
+  list-style: none;
+  width: 100%;
+  margin-top: 6px;
+  padding: 4px 0 0 0;
+  border-top: 1px solid #313244;
+}
+
+.variant-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.variant-icon {
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.variant-label {
+  flex: 1;
+  font-size: 11px;
+  font-family: monospace;
+  color: #a6adc8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.variant-row .url-actions {
+  flex-direction: row;
+  gap: 3px;
+}
+
+.variant-row .btn-copy,
+.variant-row .btn-cmd,
+.variant-row .btn-dm,
+.variant-row .btn-grab,
+.variant-row .btn-open {
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+#btn-grab-all {
+  font-size: 12px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: none;
+  background: #179a8e;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+#btn-grab-all:disabled {
+  background: #313244;
+  color: #6c7086;
+  cursor: default;
+}
+
+#btn-grab-all:not(:disabled):hover { opacity: 0.85; }
+#btn-grab-all.copied { background: #1d9e75; }
