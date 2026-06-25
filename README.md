@@ -4,6 +4,24 @@ A lightweight **cross-browser** extension that detects video/audio stream URLs (
 
 Works on **Chrome, Edge, Brave, Opera, Vivaldi and Firefox** (Manifest V3).
 
+## Install — one command
+
+**Linux** (any systemd distro):
+
+```bash
+bash <(curl -fsSL https://raw.githubusercontent.com/chethan62/mediasniff/main/bootstrap.sh)
+```
+
+**Windows** (PowerShell):
+
+```powershell
+irm https://raw.githubusercontent.com/chethan62/mediasniff/main/bootstrap.ps1 | iex
+```
+
+Clones the repo, installs the HLS engine (**N_m3u8DL-RE**) + checks deps, and sets up the Grab
+helper to autostart. The only thing left is loading the unpacked extension — it prints the exact
+step at the end. (Set `MEDIASNIFF_DIR` to choose the clone location.)
+
 ## Features
 
 - Sniffs media requests live via the `webRequest` API; a per-tab toolbar badge shows the count.
