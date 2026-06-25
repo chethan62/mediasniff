@@ -246,11 +246,14 @@ function buildItem(entry) {
     : "Copy download command";
   btnCmd.onclick = () => copyText(buildCommand(entry, currentTool()), btnCmd);
 
-  const btnDm = document.createElement("button");
-  btnDm.className = "btn-dm";
-  btnDm.textContent = "DM";
-  btnDm.title = "Send to AB Download Manager (direct files; not HLS)";
-  btnDm.onclick = () => sendMsg("SEND_TO_ABDM", abdmPayload(entry), btnDm, "Sent!", "ABDM?");
+  let btnDm = null;
+  if (!isStream(entry)) {
+    btnDm = document.createElement("button");
+    btnDm.className = "btn-dm";
+    btnDm.textContent = "DM";
+    btnDm.title = "Send to AB Download Manager (direct files only — ABDM can't assemble HLS)";
+    btnDm.onclick = () => sendMsg("SEND_TO_ABDM", abdmPayload(entry), btnDm, "Sent!", "ABDM?");
+  }
 
   const btnGrab = document.createElement("button");
   btnGrab.className = "btn-grab";
@@ -265,7 +268,7 @@ function buildItem(entry) {
 
   actions.appendChild(btnCopy);
   actions.appendChild(btnCmd);
-  actions.appendChild(btnDm);
+  if (btnDm) actions.appendChild(btnDm);
   actions.appendChild(btnGrab);
   actions.appendChild(btnOpen);
 
