@@ -1,7 +1,8 @@
 {
   "name": "mediasniff",
   "version": "1.8.2",
-  "description": "Cross-browser MV3 extension to detect and copy/download video & audio stream URLs.",
+  "description": "Cross-browser MV3 extension to detect and download video/audio stream URLs (HLS, DASH, MP4, WebM, subtitles).",
+  "keywords": ["media", "video", "audio", "download", "sniffer", "hls", "dash", "m3u8", "mpd", "stream", "firefox", "chrome", "extension", "mv3", "webextension"],
   "private": true,
   "scripts": {
     "test": "node tests/media.test.js && node tests/integration.test.js",
