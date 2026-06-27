@@ -59,6 +59,7 @@ def _which(name):
 
 
 NM3U8 = _which("N_m3u8DL-RE")
+VSD = _which("vsd")      # Rust-based HLS/DASH downloader (preferred — faster, smaller)
 YTDLP = _which("yt-dlp")
 FFMPEG = _which("ffmpeg")
 
@@ -111,7 +112,17 @@ def run_download(job_id):
     job["status"] = "downloading"
     job["pct"] = 0
     try:
-        if _is_stream(url) and NM3U8 and not audio:
+        if _is_stream(url) and VSD and not audio:
+            # Rust vsd — fast, single-binary, percent-only progress for MediaSniff.
+            cmd = [VSD, "save", url,
+                   "--percent-only", "--color", "never",
+                   "-t", "8",
+                   "-o", out_mp4]
+            for hname, hval in (("Referer", referer), ("User-Agent", ua)):
+                if hval:
+                    cmd += ["-H", "%s: %s" % (hname, hval)]
+            job["file"] = safe_fn + ".mp4"
+        elif _is_stream(url) and NM3U8 and not audio:
             # Dedicated HLS/DASH engine: parse playlist, download every segment
             # concurrently (segments go to --tmp-dir on tmpfs /tmp), then merge
             # to OUT. The --tmp-dir on RAM already protects the SSD from hundreds
@@ -227,7 +238,7 @@ class Handler(BaseHTTPRequestHandler):
         p = urlparse(self.path).path
         if p == "/health":
             return self._json(200, {
-                "ok": True, "n_m3u8dl": bool(NM3U8), "ytdlp": bool(YTDLP),
+                "ok": True, "n_m3u8dl": bool(NM3U8), "vsd": bool(VSD), "ytdlp": bool(YTDLP),
                 "ffmpeg": bool(FFMPEG), "out": OUT
             })
         if p == "/jobs":
