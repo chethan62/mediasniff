@@ -18,8 +18,8 @@ bash <(curl -fsSL https://raw.githubusercontent.com/chethan62/mediasniff/main/bo
 irm https://raw.githubusercontent.com/chethan62/mediasniff/main/bootstrap.ps1 | iex
 ```
 
-Clones the repo, installs the HLS engine (**N_m3u8DL-RE**) + checks deps, and sets up the Grab
-helper to autostart. The only thing left is loading the unpacked extension — it prints the exact
+Clones the repo, installs the HLS engine (**[vsd](https://github.com/chethan62/vsd)** — Rust, 27 MB single binary) + checks deps, and sets up the Grab
+helper to autostart. Falls back to **N_m3u8DL-RE** → yt-dlp → ffmpeg. The only thing left is loading the unpacked extension — it prints the exact
 step at the end. (Set `MEDIASNIFF_DIR` to choose the clone location.)
 
 ## Features
@@ -115,9 +115,16 @@ The browser-independent logic lives in `lib/media.js` and is covered by a zero-d
 npm test
 # or: node tests/media.test.js && node tests/integration.test.js
 ```
-
 - `tests/media.test.js` — unit tests for detection, labelling, command generation (including shell-quoting safety) and the txt/json/m3u exports.
 - `tests/integration.test.js` — loads the real `background.js` / `popup.js` against stubbed browser + DOM APIs and verifies the capture → detect → persist → command pipeline end to end.
+
+## Credits
+
+HLS/DASH download powered by:
+- **[vsd](https://github.com/chethan62/vsd)** — Rust stream downloader (fork of [clitic/vsd](https://github.com/clitic/vsd))
+- **[N_m3u8DL-RE](https://github.com/chethan62/N_m3u8DL-RE)** — C# stream downloader (fork of [nilaoda/N_m3u8DL-RE](https://github.com/nilaoda/N_m3u8DL-RE))
+- **[yt-dlp](https://github.com/yt-dlp/yt-dlp)** — universal video downloader
+- **[ffmpeg](https://ffmpeg.org)** — media muxing/transcoding
 
 ## License
 
