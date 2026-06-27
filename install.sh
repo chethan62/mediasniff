@@ -79,7 +79,7 @@ else
     vsd_url=$(printf '%s' "$vsd_api" | grep -oE "https://[^\"]*linux-x64[^\"]*" | head -1)
   fi
   if [ -n "$vsd_url" ] && [ "$vsd_url" != "null" ]; then
-    if curl -fsSL -o "$BIN/vsd" "$vsd_url" && chmod +x "$BIN/vsd"; then
+    if curl -fsSL -o /tmp/vsd.tar.gz "$vsd_url" && tar -xzf /tmp/vsd.tar.gz -C "$BIN" vsd && chmod +x "$BIN/vsd" && rm -f /tmp/vsd.tar.gz; then
       c_log "vsd installed -> $BIN/vsd"
     else
       c_warn "vsd download failed — HLS will fall back to N_m3u8DL-RE"
