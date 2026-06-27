@@ -120,6 +120,7 @@ def run_download(job_id):
                    "--tmp-dir", tempfile.gettempdir(),
                    "--save-dir", OUT, "--save-name", safe_fn,
                    "--thread-count", "8", "-mt",
+                   "--enable-resume",
                    "--no-log", "--no-ansi-color", "--disable-update-check",
                    "-M", "format=mp4"]
             if FFMPEG:
@@ -246,7 +247,25 @@ class Handler(BaseHTTPRequestHandler):
         return self._json(404, {"ok": False, "error": "not found"})
 
     def do_POST(self):
-        if urlparse(self.path).path != "/grab":
+        p = urlparse(self.path).path
+        if p.startswith("/retry/"):
+            try:
+                jid = int(p.rsplit("/", 1)[-1])
+            except ValueError:
+                return self._json(400, {"ok": False, "error": "bad id"})
+            job = jobs.get(jid)
+            if not job:
+                return self._json(404, {"ok": False, "error": "not found"})
+            if job["status"] not in ("failed", "done"):
+                return self._json(409, {"ok": False, "error": "job is " + job["status"]})
+            job["status"] = "queued"
+            job["pct"] = 0
+            job.pop("error", None)
+            job.pop("file", None)
+            threading.Thread(target=run_download, args=(jid,), daemon=True).start()
+            return self._json(202, {"ok": True, "restarted": True, "id": jid})
+
+        if p != "/grab":
             return self._json(404, {"ok": False, "error": "not found"})
         try:
             n = int(self.headers.get("Content-Length", 0))

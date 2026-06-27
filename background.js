@@ -226,4 +226,10 @@ browser.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch(err => sendResponse({ ok: false, error: String(err) }));
     return true;
   }
+  if (msg.type === "RETRY_JOB") {
+    fetch(GRABBER_JOBS_URL.replace("/jobs", "/retry/") + encodeURIComponent(msg.id), { method: "POST" })
+      .then(r => r.json().then(j => sendResponse({ ok: r.ok, ...j })))
+      .catch(err => sendResponse({ ok: false, error: String(err) }));
+    return true;
+  }
 });

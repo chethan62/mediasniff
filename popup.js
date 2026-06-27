@@ -147,6 +147,8 @@ function fileIcon(file) {
 }
 
 // --- Downloads panel: poll the helper's job list and render progress. ---
+let _notifiedJobs = new Set();
+
 async function pollDownloads() {
   const panel = document.getElementById("downloads-panel");
   if (!panel) return;
@@ -158,6 +160,23 @@ async function pollDownloads() {
     return;
   }
   const jobs = (res && res.ok && Array.isArray(res.jobs)) ? res.jobs : [];
+
+  // Notify on newly-completed jobs.
+  for (const j of jobs) {
+    if (j.status === "done" && !_notifiedJobs.has(j.id)) {
+      _notifiedJobs.add(j.id);
+      try {
+        const fn = j.file ? String(j.file).split("/").pop() : "download";
+        browser.notifications.create("job-" + j.id, {
+          type: "basic",
+          iconUrl: browser.runtime.getURL("icons/icon128.png"),
+          title: "MediaSniff — Download Complete",
+          message: fn
+        });
+      } catch (e) { /* notifications not available */ }
+    }
+  }
+
   if (!jobs.length) {
     panel.style.display = "none";
     panel.replaceChildren();
