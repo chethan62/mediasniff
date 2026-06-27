@@ -121,6 +121,7 @@ def run_download(job_id):
                    "--save-dir", OUT, "--save-name", safe_fn,
                    "--thread-count", "8", "-mt",
                    "--enable-resume",
+                   "--progress-format", "plain",
                    "--no-log", "--no-ansi-color", "--disable-update-check",
                    "-M", "format=mp4"]
             if FFMPEG:
