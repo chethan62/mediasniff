@@ -263,7 +263,11 @@ function detailText(entry) {
       parts.push("master playlist");
     }
   } else if (label === "DASH") {
-    parts.push("MPEG-DASH manifest");
+    if (entry.variants && entry.variants.length) {
+      parts.push("MPEG-DASH manifest · " + entry.variants.length + " variants");
+    } else {
+      parts.push("MPEG-DASH manifest");
+    }
   } else if (label === "SRT" || label === "VTT" || label === "ASS") {
     parts.push("subtitle");
     if (ct) parts.push(ct);
@@ -344,6 +348,8 @@ function buildItem(entry) {
     } else {
       badge.title += " — master"; badge.classList.add("badge-master");
     }
+  } else if (entry.label === "DASH" && entry.variants && entry.variants.length) {
+    badge.title += " — DASH manifest"; badge.classList.add("badge-master");
   }
 
   const icon = document.createElement("span");

@@ -99,6 +99,7 @@ def run_download(job_id):
     referer = job.get("referer") or ""
     ua = job.get("userAgent") or UA_DEFAULT
     audio = job.get("audioUrl") or ""
+    cookie = job.get("cookie") or ""
     fmt = (job.get("format") or "").strip()
     subs = job.get("subs", False)
     os.makedirs(OUT, exist_ok=True)
@@ -118,7 +119,7 @@ def run_download(job_id):
                    "--percent-only", "--color", "never",
                    "-t", "8",
                    "-o", out_mp4]
-            for hname, hval in (("Referer", referer), ("User-Agent", ua)):
+            for hname, hval in (("Referer", referer), ("User-Agent", ua), ("Cookie", cookie)):
                 if hval:
                     cmd += ["-H", "%s: %s" % (hname, hval)]
             job["file"] = safe_fn + ".mp4"
@@ -141,7 +142,7 @@ def run_download(job_id):
             cmd += ["-sv", qv, "-sa", qa]
             if subs:
                 cmd += ["-ss", "all"]
-            for hname, hval in (("Referer", referer), ("User-Agent", ua)):
+            for hname, hval in (("Referer", referer), ("User-Agent", ua), ("Cookie", cookie)):
                 if hval:
                     cmd += ["-H", "%s: %s" % (hname, hval)]
             job["file"] = safe_fn + ".mp4"
@@ -158,6 +159,8 @@ def run_download(job_id):
                    "--user-agent", ua]
             if referer:
                 cmd += ["--referer", referer]
+            if cookie:
+                cmd += ["--add-header", "Cookie: " + cookie]
             if fmt:
                 cmd += ["-f", fmt]
             if subs:
@@ -296,6 +299,7 @@ class Handler(BaseHTTPRequestHandler):
             "url": data["url"],
             "referer": data.get("referer", ""),
             "userAgent": data.get("userAgent", "") or UA_DEFAULT,
+            "cookie": data.get("cookie", ""),
             "name": data.get("name", ""),
             "format": data.get("format", ""),
             "subs": data.get("subs", False),

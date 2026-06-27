@@ -65,7 +65,31 @@ fi
 if have ffmpeg; then c_log "ffmpeg: ok"; else c_warn "ffmpeg missing — $(pkg_cmd ffmpeg)"; fi
 if have yt-dlp; then c_log "yt-dlp: ok"; else c_warn "yt-dlp missing — $(pkg_cmd yt-dlp)   (or: python3 -m pip install --user -U yt-dlp)"; fi
 
-# 3. N_m3u8DL-RE (HLS/DASH engine) -------------------------------------------
+# 3. vsd (Rust HLS/DASH engine — primary, faster startup) -------------------
+if have vsd; then
+  c_log "vsd: ok ($(command -v vsd))"
+else
+  c_log "installing vsd (Rust HLS/DASH engine) ..."
+  vsd_api=$(curl -fsSL https://api.github.com/repos/chethan62/vsd/releases/latest || true)
+  vsd_url=""
+  if have jq; then
+    vsd_url=$(printf '%s' "$vsd_api" | jq -r '[.assets[]|select(.name|test("linux-x64"))][0].browser_download_url' 2>/dev/null)
+  fi
+  if [ -z "$vsd_url" ] || [ "$vsd_url" = "null" ]; then
+    vsd_url=$(printf '%s' "$vsd_api" | grep -oE "https://[^\"]*linux-x64[^\"]*" | head -1)
+  fi
+  if [ -n "$vsd_url" ] && [ "$vsd_url" != "null" ]; then
+    if curl -fsSL -o "$BIN/vsd" "$vsd_url" && chmod +x "$BIN/vsd"; then
+      c_log "vsd installed -> $BIN/vsd"
+    else
+      c_warn "vsd download failed — HLS will fall back to N_m3u8DL-RE"
+    fi
+  else
+    c_warn "no vsd binary for linux-x64 — HLS will fall back to N_m3u8DL-RE"
+  fi
+fi
+
+# 4. N_m3u8DL-RE (HLS/DASH engine — fallback) -------------------------------
 if have N_m3u8DL-RE; then
   c_log "N_m3u8DL-RE: ok ($(command -v N_m3u8DL-RE))"
 else

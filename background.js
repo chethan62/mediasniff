@@ -57,8 +57,8 @@ function setBadge(tabId) {
   if (n) browser.action.setBadgeBackgroundColor({ color: "#534AB7", tabId: Number(tabId) });
 }
 
-// --- Capture Referer / User-Agent for media requests so external downloads
-// (yt-dlp/ffmpeg) work on streams that 403 without them. ---
+// --- Capture Referer / User-Agent / Cookie for media requests so external downloads
+// (yt-dlp/ffmpeg/vsd) work on streams that 403 without them. ---
 function recordHeaders(details) {
   const { tabId, url, requestHeaders } = details;
   if (tabId < 0 || !requestHeaders) return;
@@ -66,12 +66,14 @@ function recordHeaders(details) {
   if (Object.keys(headersByReq).length > 2000) return;      // defensive cap
   let referer = "";
   let userAgent = "";
+  let cookie = "";
   for (const h of requestHeaders) {
     const n = h.name.toLowerCase();
     if (n === "referer") referer = h.value || "";
     else if (n === "user-agent") userAgent = h.value || "";
+    else if (n === "cookie") cookie = h.value || "";
   }
-  if (referer || userAgent) headersByReq[tabId + "\n" + url] = { referer, userAgent };
+  if (referer || userAgent || cookie) headersByReq[tabId + "\n" + url] = { referer, userAgent, cookie };
 }
 
 try {
@@ -126,26 +128,34 @@ browser.webRequest.onResponseStarted.addListener(
       ts: timeStamp,
       referer: hdr.referer || "",
       userAgent: hdr.userAgent || "",
+      cookie: hdr.cookie || "",
       contentLength: contentLength > 0 ? contentLength : null
     };
 
-    // If this is an HLS master manifest, fetch and parse its variants eagerly.
-    if (entry.label === "HLS" && entry.contentType.includes("mpegurl")) {
+    // If this is an HLS master manifest or DASH MPD, fetch and parse its variants eagerly.
+    if ((entry.label === "HLS" && entry.contentType.includes("mpegurl")) ||
+        (entry.label === "DASH")) {
       try {
         const fetchHeaders = {};
         if (entry.referer) fetchHeaders["Referer"] = entry.referer;
         if (entry.userAgent) fetchHeaders["User-Agent"] = entry.userAgent;
+        if (entry.cookie) fetchHeaders["Cookie"] = entry.cookie;
         const res = await fetch(url, { headers: fetchHeaders, signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           const text = await res.text();
-          if (typeof isMasterM3U8 === "function" && isMasterM3U8(text)) {
+          if (entry.label === "HLS" && typeof isMasterM3U8 === "function" && isMasterM3U8(text)) {
             const variants = typeof parseMasterM3U8 === "function"
               ? parseMasterM3U8(text, url)
               : [];
             if (variants.length) entry.variants = variants;
+          } else if (entry.label === "DASH" && typeof isMasterMpd === "function" && isMasterMpd(text)) {
+            const variants = typeof parseMasterMpd === "function"
+              ? parseMasterMpd(text, url)
+              : [];
+            if (variants.length) entry.variants = variants;
           }
         }
-      } catch (e) { /* network error or non-master — skip */ }
+      } catch (e) { /* network error — skip */ }
     }
 
     mediaByTab[tabId].push(entry);
