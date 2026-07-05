@@ -402,6 +402,32 @@ function buildItem(entry) {
       vli.appendChild(va);
       variantList.appendChild(vli);
     });
+
+    // Subtitle tracks from #EXT-X-MEDIA:TYPE=SUBTITLES
+    if (entry.subtitles && entry.subtitles.length) {
+      const subDivider = document.createElement("li");
+      subDivider.className = "variant-row sub-divider";
+      subDivider.textContent = "Subtitles";
+      variantList.appendChild(subDivider);
+      entry.subtitles.forEach(s => {
+        const sli = document.createElement("li");
+        sli.className = "variant-row sub-row";
+        const si = document.createElement("span");
+        si.className = "variant-icon";
+        si.textContent = "💬";
+        const sl = document.createElement("span");
+        sl.className = "variant-label";
+        const langTag = s.language ? s.language.toUpperCase() + " " : "";
+        const defTag = s.isDefault ? " · default" : "";
+        sl.textContent = langTag + s.name + defTag;
+        const sa = buildActions({ url: s.url, label: "VTT", contentType: "text/vtt", referer: entry.referer, userAgent: entry.userAgent });
+        sli.appendChild(si);
+        sli.appendChild(sl);
+        sli.appendChild(sa);
+        variantList.appendChild(sli);
+      });
+    }
+
     li.appendChild(variantList);
 
     li.addEventListener("click", () => {

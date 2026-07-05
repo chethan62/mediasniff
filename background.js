@@ -148,6 +148,10 @@ browser.webRequest.onResponseStarted.addListener(
               ? parseMasterM3U8(text, url)
               : [];
             if (variants.length) entry.variants = variants;
+            const subtitles = typeof parseMasterSubtitles === "function"
+              ? parseMasterSubtitles(text, url)
+              : [];
+            if (subtitles.length) entry.subtitles = subtitles;
           } else if (entry.label === "DASH" && typeof isMasterMpd === "function" && isMasterMpd(text)) {
             const variants = typeof parseMasterMpd === "function"
               ? parseMasterMpd(text, url)
